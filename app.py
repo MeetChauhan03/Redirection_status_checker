@@ -143,6 +143,6 @@ elif not uploaded_file and not text_input:
 st.markdown("""
 ---
 <div style='text-align: center; font-size: 0.9em; color: gray;'>
-© 2025 YourName. All rights reserved. | Licensed under MIT
+© 2025 Meet Chauhan. All rights reserved. | Licensed under MIT
 </div>
 """, unsafe_allow_html=True)
