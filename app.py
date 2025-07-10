@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from io import BytesIO
 
 MAX_WORKERS = 20
 TIMEOUT = 5
@@ -74,6 +75,15 @@ if uploaded_file is not None:
 
     st.success("✅ URL checking complete!")
     st.dataframe(df)
+    # Save Excel to BytesIO
+    excel_buffer = BytesIO()
+    df.to_excel(excel_buffer, index=False, engine='openpyxl')
+    excel_buffer.seek(0)
 
-    # Download link
-    st.download_button("📥 Download Results as Excel", df.to_excel(index=False), file_name="url_status_results.xlsx")
+    # Streamlit download button
+    st.download_button(
+        label="📥 Download Results as Excel",
+        data=excel_buffer,
+        file_name="url_status_results.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
