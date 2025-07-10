@@ -65,9 +65,8 @@ with st.expander("📄 Download sample Excel format"):
 
 # === Text input option ===
 st.markdown("#### Or paste URLs manually below:")
-col1, col2 = st.columns([3, 1])
-with col1:
-    text_input = st.text_area("🔽 Paste URLs (one per line):")
+
+text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
 
 # === URL checking logic ===
 def check_url(row_idx, url):
