@@ -124,7 +124,7 @@ if url_list:
     ]).drop(columns=['Index'])
 
     st.success("✅ URL checking complete!")
-    st.dataframe(df)
+    st.dataframe(df, use_container_width=True)
 
     # === Format Excel ===
     wb = Workbook()
