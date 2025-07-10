@@ -48,7 +48,7 @@ with st.expander("📄 Download sample Excel format"):
     sample_df = pd.DataFrame({
         "Original URL": [
             "https://example.com",
-            "https://openai.com"
+            "https://abc.com"
         ]
     })
     sample_buffer = BytesIO()
