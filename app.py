@@ -137,6 +137,12 @@ if url_list:
         file_name="url_status_results.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
+    
 elif not uploaded_file and not text_input:
     st.warning("📌 Please either upload an Excel file or paste URLs to begin.")
+st.markdown("""
+---
+<div style='text-align: center; font-size: 0.9em; color: gray;'>
+© 2025 YourName. All rights reserved. | Licensed under MIT
+</div>
+""", unsafe_allow_html=True)
