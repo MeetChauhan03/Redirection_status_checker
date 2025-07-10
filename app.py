@@ -11,6 +11,7 @@ from openpyxl.styles import Font
 MAX_WORKERS = 20
 TIMEOUT = 5
 
+# === HTTP Status Descriptions ===
 status_names = {
     200: 'OK',
     301: 'Moved Permanently',
@@ -39,9 +40,30 @@ The app will check HTTP status codes and redirections.
 Uploaded or pasted data is never stored or shared. All processing happens in-memory and is deleted after your session ends.
 """)
 
-# === File upload OR text input ===
+# === Upload Excel ===
 uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx")
 
+# === Sample file download ===
+with st.expander("📄 Download sample Excel format"):
+    sample_df = pd.DataFrame({
+        "Original URL": [
+            "https://example.com",
+            "https://openai.com"
+        ]
+    })
+    sample_buffer = BytesIO()
+    sample_df.to_excel(sample_buffer, index=False)
+    sample_buffer.seek(0)
+
+    st.download_button(
+        label="⬇️ Download Sample Excel",
+        data=sample_buffer,
+        file_name="sample_urls.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    st.markdown("📌 Format: One column named **Original URL**, one URL per row.")
+
+# === Text input option ===
 st.markdown("#### Or paste URLs manually below:")
 text_input = st.text_area("🔽 Paste URLs (one per line):")
 
@@ -70,7 +92,7 @@ def check_url(row_idx, url):
 
     return row_idx, url, original_status_text, redirect_url, redirect_status_text
 
-# === Determine source of URLs ===
+# === Get URLs from Excel or Text ===
 url_list = []
 
 if uploaded_file is not None:
@@ -95,17 +117,16 @@ if url_list:
         for future in as_completed(futures):
             results.append(future.result())
 
-    # Sort results to match original order
     results.sort()
 
-    # Create final DataFrame
-    df = pd.DataFrame(results, columns=['Index', 'Original URL', 'Original Status', 'Redirect URL', 'Redirect Status'])
-    df.drop(columns=['Index'], inplace=True)
+    df = pd.DataFrame(results, columns=[
+        'Index', 'Original URL', 'Original Status', 'Redirect URL', 'Redirect Status'
+    ]).drop(columns=['Index'])
 
     st.success("✅ URL checking complete!")
     st.dataframe(df)
 
-    # === Format for Excel ===
+    # === Format Excel ===
     wb = Workbook()
     ws = wb.active
     ws.title = "URL Results"
@@ -137,12 +158,14 @@ if url_list:
         file_name="url_status_results.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    
+
 elif not uploaded_file and not text_input:
     st.warning("📌 Please either upload an Excel file or paste URLs to begin.")
+
+# === Footer ===
 st.markdown("""
 ---
 <div style='text-align: center; font-size: 0.9em; color: gray;'>
-© 2025 Meet Chauhan. All rights reserved. | Licensed under MIT
+© 2025 Meet Chauhan. All rights reserved.
 </div>
 """, unsafe_allow_html=True)
