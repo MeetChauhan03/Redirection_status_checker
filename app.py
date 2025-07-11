@@ -1,4 +1,3 @@
-# Place this in app.py or main.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -88,14 +87,15 @@ def validate_urls(urls):
 
 def render_centered_table(df):
     html = df.to_html(index=False)
-    style = '''
+    style = """
     <style>
     table { margin: auto; border-collapse: collapse; }
     th, td { text-align: center !important; padding: 8px; border: 1px solid #ddd; }
     </style>
-    '''
+    """
     st.markdown(style + html, unsafe_allow_html=True)
 
+# UI setup
 st.set_page_config(page_title="URL Status Checker", layout="wide")
 st.title("🔗 URL Status & Redirect Chain Checker")
 
@@ -130,7 +130,7 @@ if text_input.strip():
 url_list = list(dict.fromkeys(url_list))
 
 if blocked_urls:
-    st.warning("❌ Blocked URLs (contain 'avnhc'):\n" + "\\n".join(blocked_urls))
+    st.warning("❌ Blocked URLs (contain 'avnhc'):\n" + "\n".join(blocked_urls))
 
 if url_list:
     st.info(f"🔍 Checking {len(url_list)} URLs...")
