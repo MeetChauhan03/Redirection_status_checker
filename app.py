@@ -184,7 +184,7 @@ if url_list:
 
     # Display each URL chain with arrows and table
     for url, steps in all_results.items():
-        st.markdown(f"##### URL: {url}")
+        st.markdown(f"### URL: {url}")
 
         # Build arrow chain string: Step1Status → Step2Status → StepNStatus
         chain_parts = []
@@ -257,11 +257,3 @@ if url_list:
 
 elif not url_list and not blocked_urls_excel and not blocked_urls_text:
     st.warning("📌 Please either upload an Excel file or paste URLs to begin.")
-
-# === Footer ===
-st.markdown("""
----
-<div style='text-align: center; font-size: 0.9em; color: gray;'>
-© 2025 Meet Chauhan. All rights reserved.
-</div>
-""", unsafe_allow_html=True)
