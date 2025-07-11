@@ -4,12 +4,11 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from openpyxl import Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font
 
 # === Configuration ===
 MAX_WORKERS = 20
-TIMEOUT = 5
+TIMEOUT = 8
 
 # === HTTP Status Descriptions ===
 status_names = {
@@ -27,141 +26,140 @@ status_names = {
 }
 
 # === Streamlit UI ===
-st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
-st.title("🔗 Bulk URL Status & Redirect Checker")
+st.set_page_config(page_title="URL Redirect Tracker", layout="wide")
+st.title("🔁 Full URL Redirect Tracker + Server Info")
 
 st.markdown("""
-Upload an Excel file **or paste a list of URLs** (one per line).  
-The app will check HTTP status codes and redirections.
+Upload an Excel file **or paste a list of URLs**.  
+This tool checks for full redirection chains, status codes, final URL, and server info.
 
 ---
 
-🔒 **Privacy Notice**  
-Uploaded or pasted data is never stored or shared. All processing happens in-memory and is deleted after your session ends.
+🔒 **Privacy:** Your data is never stored. Everything runs in-browser.
 """)
 
 # === Upload Excel ===
 uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx")
 
-# === Sample file download ===
+# === Download Sample File ===
 with st.expander("📄 Download sample Excel format"):
-    sample_df = pd.DataFrame({
-        "Original URL": [
-            "https://example.com",
-            "https://abc.com"
-        ]
-    })
+    sample_df = pd.DataFrame({"Original URL": ["https://example.com"]})
     sample_buffer = BytesIO()
     sample_df.to_excel(sample_buffer, index=False)
     sample_buffer.seek(0)
+    st.download_button("⬇️ Download Sample Excel", sample_buffer, file_name="sample_urls.xlsx")
+    st.caption("Must contain a column named 'Original URL'")
 
-    st.download_button(
-        label="⬇️ Download Sample Excel",
-        data=sample_buffer,
-        file_name="sample_urls.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    st.markdown("📌 Format: One column named **Original URL**, one URL per row.")
+# === Paste Text Input ===
+st.markdown("#### Or paste URLs below (one per line):")
+text_input = st.text_area("🔽 Paste URLs here:", height=150)
 
-# === Text input option ===
-st.markdown("#### Or paste URLs manually below:")
-
-text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
-
-# === URL checking logic ===
-def check_url(row_idx, url):
-    try:
-        response = requests.get(url, timeout=TIMEOUT, allow_redirects=False)
-        original_status = response.status_code
-        original_status_text = f"{original_status} - {status_names.get(original_status, 'Unknown')}"
-
-        if original_status in (301, 302, 303, 307, 308):
-            redirect_url = response.headers.get('Location')
-            try:
-                redirect_resp = requests.get(redirect_url, timeout=TIMEOUT)
-                redirect_status = redirect_resp.status_code
-                redirect_status_text = f"{redirect_status} - {status_names.get(redirect_status, 'Unknown')}"
-            except requests.RequestException:
-                redirect_status_text = 'Error'
-        else:
-            redirect_url = ''
-            redirect_status_text = ''
-    except requests.RequestException:
-        original_status_text = 'Error'
-        redirect_url = ''
-        redirect_status_text = ''
-
-    return row_idx, url, original_status_text, redirect_url, redirect_status_text
-
-# === Get URLs from Excel or Text ===
+# === Get URLs ===
 url_list = []
 
-if uploaded_file is not None:
+if uploaded_file:
     try:
-        df_input = pd.read_excel(uploaded_file)
-        df_input.columns = ['Original URL'] + list(df_input.columns[1:])
-        url_list = df_input['Original URL'].dropna().tolist()
+        df = pd.read_excel(uploaded_file)
+        df.columns = ['Original URL'] + list(df.columns[1:])
+        url_list = df['Original URL'].dropna().tolist()
     except Exception as e:
-        st.error(f"❌ Error reading Excel file: {e}")
-
+        st.error(f"❌ Error reading Excel: {e}")
 elif text_input.strip():
     url_list = [line.strip() for line in text_input.strip().splitlines() if line.strip()]
 
+# === Redirect Tracker Function ===
+def get_redirect_chain(url):
+    try:
+        session = requests.Session()
+        response = session.get(url, timeout=TIMEOUT, allow_redirects=True)
+        history = response.history
+
+        steps = []
+
+        for i, r in enumerate(history):
+            steps.append({
+                'Original URL': url,
+                'Step': i + 1,
+                'Redirected URL': r.headers.get('Location') or r.url,
+                'Status Code': r.status_code,
+                'Status Description': status_names.get(r.status_code, 'Unknown'),
+                'Server': r.headers.get('Server', 'N/A'),
+                'Final URL': response.url,
+                'Final Status': f"{response.status_code} - {status_names.get(response.status_code, 'Unknown')}"
+            })
+
+        if not steps:  # No redirect
+            steps.append({
+                'Original URL': url,
+                'Step': 1,
+                'Redirected URL': url,
+                'Status Code': response.status_code,
+                'Status Description': status_names.get(response.status_code, 'Unknown'),
+                'Server': response.headers.get('Server', 'N/A'),
+                'Final URL': response.url,
+                'Final Status': f"{response.status_code} - {status_names.get(response.status_code, 'Unknown')}"
+            })
+
+        return steps
+
+    except requests.RequestException as e:
+        return [{
+            'Original URL': url,
+            'Step': 1,
+            'Redirected URL': 'Error',
+            'Status Code': 'Error',
+            'Status Description': str(e),
+            'Server': 'N/A',
+            'Final URL': 'Error',
+            'Final Status': 'Error'
+        }]
+
 # === Process URLs ===
 if url_list:
-    st.info(f"🔍 Checking {len(url_list)} URLs. Please wait...")
+    st.info(f"🔍 Processing {len(url_list)} URLs. Please wait...")
+    all_results = []
 
-    results = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = [executor.submit(check_url, idx, url) for idx, url in enumerate(url_list)]
-
+        futures = [executor.submit(get_redirect_chain, url) for url in url_list]
         for future in as_completed(futures):
-            results.append(future.result())
+            all_results.extend(future.result())
 
-    results.sort()
-
-    df = pd.DataFrame(results, columns=[
-        'Index', 'Original URL', 'Original Status', 'Redirect URL', 'Redirect Status'
-    ]).drop(columns=['Index'])
+    df_result = pd.DataFrame(all_results)
 
     st.success("✅ URL checking complete!")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df_result, use_container_width=True)
 
-    # === Format Excel ===
+    # === Save to Excel ===
     wb = Workbook()
     ws = wb.active
-    ws.title = "URL Results"
+    ws.title = "Redirect Results"
 
-    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
-        for c_idx, value in enumerate(row, 1):
-            cell = ws.cell(row=r_idx, column=c_idx, value=value)
-            if r_idx == 1:
-                cell.font = Font(bold=True)
+    headers = list(df_result.columns)
+    ws.append(headers)
+
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for _, row in df_result.iterrows():
+        ws.append(row.tolist())
 
     for col in ws.columns:
-        max_length = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            try:
-                if cell.value:
-                    max_length = max(max_length, len(str(cell.value)))
-            except:
-                pass
-        ws.column_dimensions[col_letter].width = max_length + 2
+        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = max_len + 2
 
-    buffer = BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
 
     st.download_button(
         label="📥 Download Results as Excel",
-        data=buffer,
-        file_name="url_status_results.xlsx",
+        data=output,
+        file_name="url_redirect_results.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
 elif not uploaded_file and not text_input:
-    st.warning("📌 Please either upload an Excel file or paste URLs to begin.")
+    st.warning("📌 Please upload a file or paste URLs to begin.")
 
 # === Footer ===
 st.markdown("""
