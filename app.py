@@ -125,33 +125,49 @@ if url_list:
     else:
         df_filtered = df_result.copy()
 
-    grouped = df_filtered.groupby("Original URL")
+    # === Helper function for status color ===
+    def color_for_status(code):
+        if code == 200:
+            return 'green'
+        elif str(code).startswith('3'):
+            return 'orange'
+        elif str(code).startswith('4') or str(code).startswith('5'):
+            return 'red'
+        else:
+            return 'gray'
 
-    for url, group in grouped:
-        with st.expander(f"🔗 {url}"):
-            for _, row in group.iterrows():
+    # === Display Redirect Chains as horizontal arrows ===
+    if not df_filtered.empty:
+        st.markdown("### 🔗 Redirect Chains")
+        grouped = df_filtered.groupby("Original URL")
+        for url, group in grouped:
+            steps_html = ""
+            for idx, row in group.iterrows():
+                color = color_for_status(row["Status Code"])
+                step_url = row["Redirected URL"]
                 status = row["Status Code"]
-                color = (
-                    "green" if status == 200 else
-                    "orange" if str(status).startswith("3") else
-                    "red"
-                )
-                st.markdown(
-                    f"""
-                    <div style='padding: 8px 12px; margin: 6px 0; background-color: #174c7b80;
-                        border-left: 5px solid {color}; border-radius: 4px;'>
-                        <b>Step {row["Step"]}</b>: <a href="{row["Redirected URL"]}" target="_blank">{row["Redirected URL"]}</a><br>
-                        <b>Status:</b> {row["Status Code"]} - {row["Status Description"]}<br>
-                        <b>Server:</b> {row["Server"]}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            st.markdown(
-                f"""✅ <b>Final URL:</b> <a href="{group['Final URL'].iloc[-1]}" target="_blank">{group['Final URL'].iloc[-1]}</a><br>
-                📶 <b>Final Status:</b> {group['Final Status'].iloc[-1]}""",
-                unsafe_allow_html=True
-            )
+                desc = row["Status Description"]
+                server = row["Server"]
+                steps_html += f"""
+                <div style='display:inline-block; vertical-align:top; padding:10px; margin-right:5px; 
+                            border-radius:8px; background-color:#f0f0f0; border: 3px solid {color}; min-width:250px;'>
+                    <a href="{step_url}" target="_blank" style='color:#000; font-weight:bold; word-break: break-all;'>{step_url}</a><br>
+                    <span style='color:{color}; font-weight:600;'>Status: {status} - {desc}</span><br>
+                    <small>Server: {server}</small>
+                </div>
+                """
+                if idx < group.index[-1]:
+                    # Add arrow except after last step
+                    steps_html += "<span style='font-size:28px; vertical-align: middle; color:#555; margin-right:5px;'>&rarr;</span>"
+
+            st.markdown(f"""
+            <div style='overflow-x:auto; white-space: nowrap; margin-bottom: 30px; padding: 5px; border-bottom: 1px solid #ddd;'>
+                <b>Original URL:</b> {url}<br><br>
+                {steps_html}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No results to display")
 
     # === Excel Export ===
     wb = Workbook()
@@ -179,7 +195,7 @@ if url_list:
     )
 
 else:
-    st.warning("📌 Upload an Excel or paste URLs to begin.")
+    st.warning("📌 Upload an Excel file or paste URLs to begin.")
 
 # === Footer ===
 st.markdown("""
