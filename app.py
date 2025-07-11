@@ -53,16 +53,32 @@ def get_redirect_chain(url):
         steps = []
 
         for i, r in enumerate(history):
+            # Try to get server header from redirect response directly
+            server = r.headers.get('Server', None)
+
+            # If not found and redirect, try HEAD request to the Location URL to fetch Server header
+            if not server and r.status_code in (301, 302, 303, 307, 308):
+                redirect_url = r.headers.get('Location')
+                if redirect_url:
+                    try:
+                        head_resp = session.head(redirect_url, timeout=TIMEOUT, allow_redirects=False)
+                        server = head_resp.headers.get('Server', 'N/A')
+                    except:
+                        server = 'N/A'
+
             steps.append({
                 'Original URL': url,
                 'Step': i + 1,
                 'Redirected URL': r.headers.get('Location') or r.url,
                 'Status Code': r.status_code,
                 'Status Description': status_names.get(r.status_code, 'Unknown'),
-                'Server': r.headers.get('Server', 'N/A'),
+                'Server': server or 'N/A',
                 'Final URL': response.url,
                 'Final Status': f"{response.status_code} - {status_names.get(response.status_code, 'Unknown')}"
             })
+
+        # Final response
+        server_final = response.headers.get('Server', 'N/A')
 
         if not steps:
             steps.append({
@@ -71,10 +87,13 @@ def get_redirect_chain(url):
                 'Redirected URL': url,
                 'Status Code': response.status_code,
                 'Status Description': status_names.get(response.status_code, 'Unknown'),
-                'Server': response.headers.get('Server', 'N/A'),
+                'Server': server_final,
                 'Final URL': response.url,
                 'Final Status': f"{response.status_code} - {status_names.get(response.status_code, 'Unknown')}"
             })
+        else:
+            # Update final step server (in case not set properly)
+            steps[-1]['Server'] = server_final
 
         return steps
 
