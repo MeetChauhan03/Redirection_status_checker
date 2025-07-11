@@ -184,7 +184,7 @@ if url_list:
 
     # Display each URL chain with arrows and table
     for url, steps in all_results.items():
-        st.markdown(f"#### URL: {url}")
+        st.markdown(f"## URL: {url}")
 
         # Build arrow chain string: Step1Status → Step2Status → StepNStatus
         chain_parts = []
