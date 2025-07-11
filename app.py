@@ -10,34 +10,41 @@ from openpyxl.styles import Font
 MAX_WORKERS = 20
 TIMEOUT = 8
 
+# === HTTP Status Descriptions ===
 status_names = {
     200: 'OK', 301: 'Moved Permanently', 302: 'Found', 303: 'See Other',
     307: 'Temporary Redirect', 308: 'Permanent Redirect', 400: 'Bad Request',
     401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 500: 'Internal Server Error'
 }
 
+# === Page Setup ===
 st.set_page_config(page_title="URL Redirect Tracker", layout="wide")
 st.title("🔁 Full URL Redirect Tracker + Server Info")
 
 st.markdown("""
-Upload an Excel file or paste URLs below. This app tracks full redirection chains, status codes, and server headers.
+Upload an Excel file or paste URLs. The app will check all redirection steps, final URL, server headers, and HTTP statuses.
 
-🔒 Your data is processed in-memory only.
+🔒 **Privacy Notice**  
+All data is processed in memory and not saved or shared.
 """)
 
+# === File Upload ===
 uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx")
 
+# === Sample File Download ===
 with st.expander("📄 Download sample Excel format"):
     sample_df = pd.DataFrame({"Original URL": ["https://example.com"]})
-    sample_buffer = BytesIO()
-    sample_df.to_excel(sample_buffer, index=False)
-    sample_buffer.seek(0)
-    st.download_button("⬇️ Download Sample Excel", sample_buffer, file_name="sample_urls.xlsx")
-    st.caption("Must contain a column named 'Original URL'.")
+    sample_buf = BytesIO()
+    sample_df.to_excel(sample_buf, index=False)
+    sample_buf.seek(0)
+    st.download_button("⬇️ Download Sample Excel", sample_buf, file_name="sample_urls.xlsx")
+    st.caption("Make sure the first column is named: **Original URL**.")
 
-st.markdown("#### Or paste URLs below (one per line):")
+# === Text Paste Option ===
+st.markdown("#### Or paste URLs (one per line):")
 text_input = st.text_area("🔽 Paste URLs:", height=150)
 
+# === Redirection Logic ===
 def get_redirect_chain(url):
     try:
         session = requests.Session()
@@ -83,7 +90,7 @@ def get_redirect_chain(url):
             'Final Status': 'Error'
         }]
 
-# === Collect URL list
+# === Load URLs ===
 url_list = []
 if uploaded_file:
     try:
@@ -95,11 +102,11 @@ if uploaded_file:
 elif text_input.strip():
     url_list = [line.strip() for line in text_input.strip().splitlines() if line.strip()]
 
-# === Process URLs
+# === Process URLs ===
 if url_list:
-    st.info(f"🔍 Processing {len(url_list)} URLs...")
-    all_results = []
+    st.info(f"🔍 Checking {len(url_list)} URLs...")
 
+    all_results = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [executor.submit(get_redirect_chain, url) for url in url_list]
         for future in as_completed(futures):
@@ -109,8 +116,16 @@ if url_list:
 
     st.success("✅ URL tracking complete!")
 
-    # === VISUAL CHAIN UI ===
-    grouped = df_result.groupby("Original URL")
+    # === Search Filter ===
+    search_term = st.text_input("🔍 Filter results by Original URL or Final URL")
+    if search_term:
+        df_filtered = df_result[df_result.apply(lambda row:
+            search_term.lower() in str(row['Original URL']).lower() or
+            search_term.lower() in str(row['Final URL']).lower(), axis=1)]
+    else:
+        df_filtered = df_result.copy()
+
+    grouped = df_filtered.groupby("Original URL")
 
     for url, group in grouped:
         with st.expander(f"🔗 {url}"):
@@ -123,7 +138,7 @@ if url_list:
                 )
                 st.markdown(
                     f"""
-                    <div style='padding: 8px 12px; margin: 6px 0; background-color: #f9f9f9;
+                    <div style='padding: 8px 12px; margin: 6px 0; background-color: #174c7b80;
                         border-left: 5px solid {color}; border-radius: 4px;'>
                         <b>Step {row["Step"]}</b>: <a href="{row["Redirected URL"]}" target="_blank">{row["Redirected URL"]}</a><br>
                         <b>Status:</b> {row["Status Code"]} - {row["Status Description"]}<br>
@@ -138,7 +153,7 @@ if url_list:
                 unsafe_allow_html=True
             )
 
-    # === Excel Export
+    # === Excel Export ===
     wb = Workbook()
     ws = wb.active
     ws.title = "Redirect Results"
@@ -146,27 +161,25 @@ if url_list:
     ws.append(headers)
     for cell in ws[1]:
         cell.font = Font(bold=True)
-
     for _, row in df_result.iterrows():
         ws.append(row.tolist())
-
     for col in ws.columns:
         max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
         ws.column_dimensions[col[0].column_letter].width = max_len + 2
 
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
+    excel_buffer = BytesIO()
+    wb.save(excel_buffer)
+    excel_buffer.seek(0)
 
     st.download_button(
         label="📥 Download Results as Excel",
-        data=output,
+        data=excel_buffer,
         file_name="url_redirect_results.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-elif not uploaded_file and not text_input:
-    st.warning("📌 Please upload an Excel or paste some URLs to begin.")
+else:
+    st.warning("📌 Upload an Excel or paste URLs to begin.")
 
 # === Footer ===
 st.markdown("""
