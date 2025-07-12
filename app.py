@@ -320,7 +320,7 @@ def to_excel(df_summary , df_tracking):
     stream.seek(0)
     return stream
 
-excel_data = to_excel(df_filtered)
+excel_data = to_excel(df_summary, df_results)
 
 st.download_button(
     label="📥 Download Results as Excel",
