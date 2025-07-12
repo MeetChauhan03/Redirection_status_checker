@@ -306,11 +306,27 @@ def to_excel(df_summary , df_tracking):
         ws1.column_dimensions[col[0].column_letter].width = max_len + 5
     
     ws2 = wb.create_sheet("Redirection Tracking")
-    for row in dataframe_to_rows(df_tracking, index=False, header=True):
-        ws2.append(row)
-    for cell in ws2[1]:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
+    grouped = df_tracking.groupby("Original URL")
+
+    for url, group in grouped:
+        ws2.append([f"Redirect Chain for: {url}"])
+        for cell in ws2[ws2.max_row]:
+            cell.font = Font(bold=True)
+        ws2.append([])  # empty row after title
+
+        for row in dataframe_to_rows(group, index=False, header=True):
+            ws2.append(row)
+
+        ws2.append([])  # spacer between groups
+
+    # Format headers (assumes headers appear after each group title)
+    for row in ws2.iter_rows(min_row=1, max_row=ws2.max_row):
+        for cell in row:
+            if isinstance(cell.value, str) and cell.value.startswith("Redirect Chain for:"):
+                cell.font = Font(bold=True, color="0000FF")  # Blue title
+                continue
+
+    # Auto-adjust column widths
     for col in ws2.columns:
         max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
         ws2.column_dimensions[col[0].column_letter].width = max_len + 5
