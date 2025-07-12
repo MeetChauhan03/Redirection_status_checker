@@ -135,12 +135,10 @@ st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
 # Initialize session state
-if "clear_triggered" not in st.session_state:
-    st.session_state.clear_triggered = False
 if "text_input" not in st.session_state:
-    st.session_state.text_input = ""
+    st.session_state["text_input"] = ""
 if "uploaded_file" not in st.session_state:
-    st.session_state.uploaded_file = None
+    st.session_state["uploaded_file"] = None
 
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
