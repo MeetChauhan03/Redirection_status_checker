@@ -291,50 +291,77 @@ st.markdown(
 st.dataframe(df_filtered, use_container_width=True)
 
 # --- Download Excel with formatting ---
-def to_excel(df_summary , df_tracking):
+def to_excel(df_summary, df_tracking):
     wb = Workbook()
+
+    # === Sheet 1: Summary ===
     ws1 = wb.active
     ws1.title = "URL Redirect Results"
 
     for r_idx, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), 1):
-       ws1.append(row)
-    for cell in ws1[1]:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
-    for col in ws1.columns:
-        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
-        ws1.column_dimensions[col[0].column_letter].width = max_len + 5
-    
+        ws1.append(row)
+        if r_idx == 1:
+            for cell in ws1[r_idx]:
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal="center")
+        else:
+            status_code = row[2]
+            fill = get_status_fill(status_code)
+            for cell in ws1[r_idx]:
+                cell.fill = fill
+
+    ws1.auto_filter.ref = ws1.dimensions  # Add Excel filter
+    adjust_column_widths(ws1)
+
+    # === Sheet 2: Redirection Tracking (Grouped) ===
     ws2 = wb.create_sheet("Redirection Tracking")
+
     grouped = df_tracking.groupby("Original URL")
 
     for url, group in grouped:
         ws2.append([f"Redirect Chain for: {url}"])
         for cell in ws2[ws2.max_row]:
-            cell.font = Font(bold=True)
-        ws2.append([])  # empty row after title
+            cell.font = Font(bold=True, color="0000FF")
+        ws2.append([])
 
-        for row in dataframe_to_rows(group, index=False, header=True):
+        for r_idx, row in enumerate(dataframe_to_rows(group, index=False, header=True)):
             ws2.append(row)
+            if r_idx > 0:  # skip header row
+                status_code = row[3]
+                fill = get_status_fill(status_code)
+                for cell in ws2[ws2.max_row]:
+                    cell.fill = fill
 
-        ws2.append([])  # spacer between groups
+        ws2.append([])  # Spacer
 
-    # Format headers (assumes headers appear after each group title)
-    for row in ws2.iter_rows(min_row=1, max_row=ws2.max_row):
-        for cell in row:
-            if isinstance(cell.value, str) and cell.value.startswith("Redirect Chain for:"):
-                cell.font = Font(bold=True, color="0000FF")  # Blue title
-                continue
+    adjust_column_widths(ws2)
+    ws2.auto_filter.ref = ws2.dimensions
 
-    # Auto-adjust column widths
-    for col in ws2.columns:
-        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
-        ws2.column_dimensions[col[0].column_letter].width = max_len + 5
-
+    # === Save to stream ===
     stream = BytesIO()
     wb.save(stream)
     stream.seek(0)
     return stream
+
+# === Helpers ===
+def get_status_fill(code):
+    try:
+        code = int(code)
+    except:
+        return PatternFill(start_color="FFFFFF", fill_type=None)
+
+    if 200 <= code < 300:
+        return PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")  # Green
+    elif 300 <= code < 400:
+        return PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")  # Yellow
+    elif 400 <= code < 600:
+        return PatternFill(start_color="F8CBAD", end_color="F8CBAD", fill_type="solid")  # Red
+    return PatternFill(start_color="FFFFFF", fill_type=None)
+
+def adjust_column_widths(ws):
+    for col in ws.columns:
+        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = max_len + 5
 
 excel_data = to_excel(df_summary, df_results)
 
