@@ -28,10 +28,11 @@ status_names = {
 
 # === Utility: Get server name from headers ===
 def get_server_name(headers):
-    return headers.get("Server") or \
-         headers.get("X-Powered-By") or \
-         headers.get("Via") or \
-         "Unknown"
+    for key in ["Server", "X-Powered-By", "Via"]:
+        val = headers.get(key)
+        if val:
+            return val.strip()
+    return "Unknown"
 
 # === URL blocking check ===
 def is_blocked_url(url):
