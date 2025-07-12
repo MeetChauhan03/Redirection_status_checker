@@ -115,17 +115,8 @@ def render_redirect_chain(chain):
             icon = "❌"
 
         indent = "    " * i
-        display += (
-            f"<div style='margin-bottom:6px;'>"
-            f"{indent}└─&gt; {icon} <strong>{status_code}</strong> → "
-            f"<span style='word-break:break-word;'>{url}</span> "
-            f"[<strong>{status_text}</strong>, Server: <em>{server}</em>]"
-            f"</div>"
-        )
-        html = f"<div style='font-family: monospace; font-size: 0.9em;'>{display}</div>"
-    return html
-
-
+        display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]"+ "\n".join(lines)
+    return display
 # === Streamlit UI ===
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
