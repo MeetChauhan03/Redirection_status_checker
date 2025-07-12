@@ -274,7 +274,7 @@ for orig_url, chain in results:
 df_summary = pd.DataFrame(summary_rows).drop_duplicates()
 # --- Prepare DataFrame for display and export ---
 all_rows = []
-for orig_url, chain in results.items():
+for orig_url, chain in results:
     for idx, step in enumerate(chain):
         all_rows.append({
             "Original URL": orig_url,
