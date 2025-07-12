@@ -240,8 +240,8 @@ st.success("✅ URL checking complete!")
 
 # --- Prepare DataFrame for display and export ---
 all_rows = []
-for orig_url, chain in results.items():
-    for idx, step in enumerate(chain):
+for orig_url, chain in results:
+    for idx, step in chain:
         all_rows.append({
             "Original URL": orig_url,
             "Redirect Step": idx + 1,
