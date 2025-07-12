@@ -114,9 +114,17 @@ def render_redirect_chain(chain):
             icon = "❌"
 
         indent = "&nbsp;" * (4 * i)  # HTML indentation
-        lines.append(f"{indent}└─&gt; {icon} {status_code} → <code>{url}</code> [<strong>{status_text}</strong>, Server: {server}]<br>")
+        lines.append(
+            f"{indent}└─&gt; {icon} <strong>{status_code}</strong> → "
+            f"<span style='word-wrap: break-word; white-space: normal;'><code>{url}</code></span> "
+            f"[<strong>{status_text}</strong>, Server: {server}]<br>"
+        )
 
-    html = "<div style='white-space: pre-wrap; font-family: monospace; font-size: 0.9em'>" + "".join(lines) + "</div>"
+    html = (
+        "<div style='white-space: pre-wrap; font-family: monospace; font-size: 0.9em; line-height: 1.6;'>"
+        + "".join(lines) +
+        "</div>"
+    )
     return html
 st.markdown(render_redirect_chain(chain), unsafe_allow_html=True)
 # st.markdown(f"```plaintext\n{display}\n```")
