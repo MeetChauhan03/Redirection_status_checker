@@ -28,11 +28,36 @@ status_names = {
 
 # === Utility: Get server name from headers ===
 def get_server_name(headers):
-    for key in ["Server", "X-Powered-By", "Via"]:
-        val = headers.get(key)
-        if val:
-            return val.strip()
+    akamai_indicators = [
+        "AkamaiGHost",
+        "akamaitechnologies.com",
+        "X-Akamai-Transformed"
+    ]
+
+    # Combine headers into one searchable string
+    combined_headers = " | ".join(f"{k}: {v}" for k, v in headers.items())
+
+    for akamai_marker in akamai_indicators:
+        if akamai_marker.lower() in combined_headers.lower():
+            return "Akamai"
+
+    # Fallback to general server header inspection
+    server_headers_priority = [
+        "Server",
+        "X-Powered-By",
+        "X-Cache",
+        "Via",
+        "CF-RAY",
+        "X-Amz-Cf-Id",
+        "X-CDN",
+    ]
+    
+    for key in server_headers_priority:
+        if key in headers:
+            return f"{key}: {headers[key]}"
+    
     return "Unknown"
+
 
 # === URL blocking check ===
 def is_blocked_url(url):
