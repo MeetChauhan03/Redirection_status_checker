@@ -110,6 +110,25 @@ def check_redirection_chain(url):
         })
     return chain
 
+def compare_redirection_states(url):
+    result_1 = check_redirection_chain(url)
+    import time
+    time.sleep(2)  # Short pause to simulate difference
+    result_2 = check_redirection_chain(url)
+
+    # Compare final status codes or destinations
+    final_1 = result_1[-1] if result_1 else {}
+    final_2 = result_2[-1] if result_2 else {}
+
+    discrepancy = final_1.get("Status Code") != final_2.get("Status Code") or final_1.get("URL") != final_2.get("URL")
+    return {
+        "original": url,
+        "first_result": final_1,
+        "second_result": final_2,
+        "discrepancy": discrepancy
+    }
+
+
 # === Render redirect chain in markdown for UI ===
 def render_redirect_chain(chain):
     if not chain:
@@ -194,6 +213,7 @@ text_input = st.text_area(
     key="text_input",
     value="" if "text_input" not in st.session_state else st.session_state["text_input"]
 )
+chain = compare_redirection_states(url)
 
 # Replace your clear button logic with this:
 if st.button("🧹 Clear All Inputs"):
