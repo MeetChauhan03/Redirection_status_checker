@@ -134,11 +134,14 @@ def render_redirect_chain(chain):
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
-# Initialize session state
-if "text_input" not in st.session_state:
-    st.session_state["text_input"] = ""
-if "uploaded_file" not in st.session_state:
-    st.session_state["uploaded_file"] = None
+if "clear_all_triggered" not in st.session_state:
+    st.session_state.clear_all_triggered = False
+
+# When user clicks the Clear button, flag it
+if st.session_state.clear_all_triggered:
+    st.session_state.clear_all_triggered = False
+    st.experimental_set_query_params()  # Optional: removes params if any
+    st.experimental_rerun()
 
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
@@ -180,12 +183,10 @@ with st.expander("📄 Download sample Excel format"):
 st.markdown("#### Or paste URLs manually below:")
 text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="text_input")
 
-# Clear Button Logic
-if st.button("🧹 Clear All"):
-    st.session_state.text_input = ""
-    st.session_state.uploaded_file = None
-    st.session_state.clear_triggered = True
-    st.rerun()
+# Clear button BELOW text input
+if st.button("🧹 Clear All Inputs"):
+    st.session_state.clear_all_triggered = True
+    st.rerun()  # Will trigger rerun with cleared state
 
 # --- Collect URLs from input ---
 urls = []
