@@ -28,11 +28,7 @@ status_names = {
 
 # === Utility: Get server name from headers ===
 def get_server_name(headers):
-    akamai_indicators = [
-        "AkamaiGHost",
-        "akamaitechnologies.com",
-        "X-Akamai-Transformed"
-    ]
+    akamai_indicators = ["AkamaiGHost","akamaitechnologies.com","X-Akamai-Transformed"]
 
     # Combine headers into one searchable string
     combined_headers = " | ".join(f"{k}: {v}" for k, v in headers.items())
@@ -42,15 +38,7 @@ def get_server_name(headers):
             return "Akamai"
 
     # Fallback to general server header inspection
-    server_headers_priority = [
-        "Server",
-        "X-Powered-By",
-        "X-Cache",
-        "Via",
-        "CF-RAY",
-        "X-Amz-Cf-Id",
-        "X-CDN",
-    ]
+    server_headers_priority = ["Server","X-Powered-By","X-Cache","Via","CF-RAY","X-Amz-Cf-Id","X-CDN"]
     
     for key in server_headers_priority:
         if key in headers:
@@ -143,7 +131,7 @@ def render_redirect_chain(chain):
         display += f"{indent} └─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"+ "\n&nbsp;"
     return display
 # === Streamlit UI ===
-st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
+st.set_page_config(page_title="URL Status & Redirect Checker")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
 st.markdown("""
@@ -276,7 +264,7 @@ st.markdown(
     """
     <style>
     .dataframe tbody tr th, .dataframe tbody tr td {
-        text-align: center;
+        text-align: center !important;
     }
     </style>
     """,
@@ -305,7 +293,7 @@ def to_excel(df):
                     max_length = max(max_length, len(str(cell.value)))
             except:
                 pass
-        ws.column_dimensions[col_letter].width = max_length + 4
+        ws.column_dimensions[col_letter].width = max_length + 3
 
     stream = BytesIO()
     wb.save(stream)
@@ -317,7 +305,7 @@ excel_data = to_excel(df_filtered)
 st.download_button(
     label="📥 Download Results as Excel",
     data=excel_data,
-    file_name="url_status_redirect_results.xlsx",
+    file_name="url_status_with_redirect_results.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
