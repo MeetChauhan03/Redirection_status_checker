@@ -291,7 +291,7 @@ st.markdown(
 st.dataframe(df_filtered, use_container_width=True)
 
 # --- Download Excel with formatting ---
-def to_excel(df):
+def to_excel(df_summary , df_tracking):
     wb = Workbook()
     ws = wb.active
     ws.title = "URL Redirect Results"
