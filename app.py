@@ -243,7 +243,7 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     for url, future in zip(urls_unique, futures):
         try:
             chain = future.result()
-            results[url] = chain
+            # results[url] = chain
         except Exception:
             results[url] = [{
                 'URL': url,
@@ -251,6 +251,7 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 'Status Code': 'Error',
                 'Server': 'N/A'
             }]
+        results.append((url, chain))
 
 st.success("✅ URL checking complete!")
 
