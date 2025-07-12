@@ -6,6 +6,7 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font, Alignment, PatternFill
+from urllib.parse import urlparse
 
 # === Configuration ===
 MAX_WORKERS = 20
@@ -25,6 +26,14 @@ status_names = {
     404: 'Not Found',
     500: 'Internal Server Error'
 }
+
+def is_valid_url(url):
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme in ['http', 'https'] and bool(parsed.netloc)
+    except:
+        return False
+
 
 # === Utility: Get server name from headers ===
 def get_server_name(headers):
@@ -173,7 +182,17 @@ with st.expander("📄 Download sample Excel format"):
 # --- Text input option ---
 st.markdown("#### Or paste URLs manually below:")
 text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
+if "clear_triggered" not in st.session_state:
+    st.session_state["clear_triggered"] = False
+    col1, col2 = st.columns([3, 1])
+with col1:
+    text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="url_input")
 
+with col2:
+    if st.button("🧹 Clear All"):
+        st.session_state.url_input = ""
+        st.session_state.clear_triggered = True
+        st.experimental_rerun()
 # --- Collect URLs from input ---
 urls = []
 errors_blocked = []
@@ -190,7 +209,13 @@ if uploaded_file is not None:
         st.error(f"❌ Error reading Excel file: {e}")
 
 if text_input.strip():
-    urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
+    raw_lines = [line.strip() for line in text_input.strip().splitlines() if line.strip()]
+    valid_lines = [line for line in raw_lines if is_valid_url(line)]
+    invalid_lines = [line for line in raw_lines if not is_valid_url(line)]
+    
+    if invalid_lines:
+        st.warning(f"⚠️ Skipping {len(invalid_lines)} invalid entries that do not appear to be valid URLs.")
+        urls += valid_lines
 
 # Remove duplicates and blocked URLs
 urls_unique = []
