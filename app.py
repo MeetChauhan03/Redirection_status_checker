@@ -36,7 +36,7 @@ def get_server_name(headers):
 
 # === URL blocking check ===
 def is_blocked_url(url):
-    return "avnhc" in url.lower()
+    return "b2b-b" in url.lower()
 
 # === Check one URL redirection chain ===
 def check_redirection_chain(url):
@@ -93,7 +93,7 @@ def render_redirect_chain(chain):
         return "No redirection data."
 
     display = "🔗 **Redirect Chain:**  \n"
-    # indent = "  "
+    indent = "  "
     for i, step in enumerate(chain):
         status_code = step['Status Code']
         url = step['URL']
@@ -129,6 +129,17 @@ The app will check HTTP status codes and follow redirects, showing full redirect
 
 🔒 **Privacy Notice**  
 Uploaded or pasted data is never stored or shared. All processing happens in-memory only.
+
+---
+🟢 200 → All good!
+
+🟡 301 → This page has permanently moved somewhere else.
+
+🔴 404 → Oops! The page was not found.
+
+🔄 Loop → The URL keeps redirecting back and forth.
+
+❌ Error → Couldn’t check this URL, please try again later.
 """)
 
 # --- Upload Excel ---
@@ -185,7 +196,7 @@ for url in urls:
         urls_unique.append(url)
 
 if errors_blocked:
-    st.warning(f"⚠️ The following URLs contain the forbidden string 'avnhc' and will be skipped:\n" + "\n".join(errors_blocked))
+    st.warning(f"⚠️ The following URLs contain the forbidden string 'Preview link' and will be skipped:\n" + "\n".join(errors_blocked))
 
 if not urls_unique:
     st.warning("📌 Please upload or paste valid URLs to proceed.")
