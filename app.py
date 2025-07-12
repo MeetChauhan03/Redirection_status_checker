@@ -141,6 +141,9 @@ def render_redirect_chain(chain):
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
+if "clear_triggered" not in st.session_state:
+    st.session_state["clear_triggered"] = False
+
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
 The app will check HTTP status codes and follow redirects, showing full redirect chains.
