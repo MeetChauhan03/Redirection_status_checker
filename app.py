@@ -134,6 +134,23 @@ def render_redirect_chain(chain):
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
+# Session init
+if "clear_triggered" not in st.session_state:
+    st.session_state.clear_triggered = False
+if "text_input" not in st.session_state:
+    st.session_state.text_input = ""
+
+# Clear button
+if st.button("🧹 Clear All"):
+    st.session_state.clear_triggered = True
+    st.session_state.text_input = ""
+    st.rerun()
+
+# After rerun, clean up flag
+if st.session_state.clear_triggered:
+    st.session_state.clear_triggered = False
+
+
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
 The app will check HTTP status codes and follow redirects, showing full redirect chains.
@@ -172,26 +189,31 @@ with st.expander("📄 Download sample Excel format"):
 
 # --- Text input option ---
 st.markdown("#### Or paste URLs manually below:")
-text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
+text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="text_input")
+
 
 # --- Collect URLs from input ---
 urls = []
 errors_blocked = []
 
-if uploaded_file is not None:
-    try:
-        df_in = pd.read_excel(uploaded_file)
-        df_in.columns = [str(c) for c in df_in.columns]
-        if 'Original URL' not in df_in.columns:
-            st.error("❌ Excel must have column named 'Original URL'.")
-            st.stop()
-        urls = df_in['Original URL'].dropna().astype(str).tolist()
-    except Exception as e:
-        st.error(f"❌ Error reading Excel file: {e}")
+if uploaded_file and not text_input.strip():
+    if uploaded_file is not None:
+        try:
+            df_in = pd.read_excel(uploaded_file)
+            df_in.columns = [str(c) for c in df_in.columns]
+            if 'Original URL' not in df_in.columns:
+                st.error("❌ Excel must have column named 'Original URL'.")
+                st.stop()
+            urls = df_in['Original URL'].dropna().astype(str).tolist()
+        except Exception as e:
+            st.error(f"❌ Error reading Excel file: {e}")
 
-if text_input.strip():
-    urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
-
+elif text_input.strip() and not uploaded_file:
+    if text_input.strip():
+        urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
+else:
+    st.info("Please provide either Excel OR manual URLs — not both.")
+    st.stop()
 # Remove duplicates and blocked URLs
 urls_unique = []
 for url in urls:
