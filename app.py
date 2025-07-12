@@ -141,7 +141,7 @@ if "clear_all_triggered" not in st.session_state:
 if st.session_state.clear_all_triggered:
     st.session_state.clear_all_triggered = False
     st.experimental_set_query_params()  # Optional: removes params if any
-    st.rerun()
+    st.experimental_rerun()
 
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
@@ -186,6 +186,7 @@ text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="te
 # Clear button BELOW text input
 if st.button("🧹 Clear All Inputs"):
     st.session_state.clear_all_triggered = True
+    st.session_state["text_input"] = ""
     st.rerun()  # Will trigger rerun with cleared state
 
 # --- Collect URLs from input ---
