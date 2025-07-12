@@ -210,7 +210,7 @@ if not urls_unique:
 # --- Check URLs with concurrency ---
 st.info(f"🔍 Checking {len(urls_unique)} unique URLs. Please wait...")
 
-results = []
+results = {}
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     futures = {executor.submit(check_redirection_chain, url): url for url in urls_unique}
     for future in as_completed(futures):
