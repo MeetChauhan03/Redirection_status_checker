@@ -115,9 +115,8 @@ def render_redirect_chain(chain):
             icon = "❌"
 
         indent = "    " * i
-        display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}] \n\n"
+        display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}] \n"
     return display
-# st.markdown(f"```plaintext\n{display}\n```")
 # === Streamlit UI ===
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
