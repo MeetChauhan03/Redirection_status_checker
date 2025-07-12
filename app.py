@@ -113,11 +113,12 @@ def render_redirect_chain(chain):
             icon = "🔄"
         elif status_code == 'Error':
             icon = "❌"
-
-        display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"
+        
+        indent=" "*i
+        display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n\n"
         indent += "    "
     return display
-
+st.markdown(f"```plaintext\n{display}\n```")
 # === Streamlit UI ===
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
@@ -140,7 +141,7 @@ with st.expander("📄 Download sample Excel format"):
     sample_df = pd.DataFrame({
         "Original URL": [
             "https://example.com",
-            "https://httpbin.org/status/301"
+            "https://abc.com"
         ]
     })
     sample_buffer = BytesIO()
