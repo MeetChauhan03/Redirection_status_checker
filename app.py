@@ -3,201 +3,407 @@ import pandas as pd
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
-from urllib.parse import urlparse, urljoin
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Font, Alignment, PatternFill
 
-# === Configs ===
+# === Configuration ===
 MAX_WORKERS = 20
 TIMEOUT = 5
+
+# === HTTP Status Descriptions ===
 status_names = {
-    200: 'OK', 301: 'Moved Permanently', 302: 'Found', 303: 'See Other',
-    307: 'Temporary Redirect', 308: 'Permanent Redirect',
-    400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
-    404: 'Not Found', 500: 'Internal Server Error'
+    200: 'OK',
+    301: 'Moved Permanently',
+    302: 'Found',
+    303: 'See Other',
+    307: 'Temporary Redirect',
+    308: 'Permanent Redirect',
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    500: 'Internal Server Error'
 }
 
-# === Helpers ===
-def is_valid_url(url):
-    try:
-        p = urlparse(url.strip())
-        return p.scheme in ('http', 'https') and p.netloc
-    except:
-        return False
-
-def is_blocked_url(url):
-    return 'b2b-b' in url.lower()
-
+# === Utility: Get server name from headers ===
 def get_server_name(headers):
-    markers = ["AkamaiGHost", "akamaitechnologies.com", "X-Akamai-Transformed"]
-    hdrs = " | ".join(f"{k}: {v}" for k, v in headers.items())
-    for m in markers:
-        if m.lower() in hdrs.lower():
+    akamai_indicators = ["AkamaiGHost","akamaitechnologies.com","X-Akamai-Transformed"]
+
+    # Combine headers into one searchable string
+    combined_headers = " | ".join(f"{k}: {v}" for k, v in headers.items())
+
+    for akamai_marker in akamai_indicators:
+        if akamai_marker.lower() in combined_headers.lower():
             return "Akamai"
-    for key in ["Server", "X-Powered-By", "X-Cache", "Via", "CF-RAY", "X-Amz-Cf-Id", "X-CDN"]:
+
+    # Fallback to general server header inspection
+    server_headers_priority = ["Server","X-Powered-By","X-Cache","Via","CF-RAY","X-Amz-Cf-Id","X-CDN"]
+    
+    for key in server_headers_priority:
         if key in headers:
             return f"{key}: {headers[key]}"
+    
     return "Unknown"
 
+
+# === URL blocking check ===
+def is_blocked_url(url):
+    return "b2b-b" in url.lower()
+
+# === Check one URL redirection chain ===
 def check_redirection_chain(url):
-    visited, chain = set(), []
-    current = url
+    visited = set()
+    chain = []
+    current_url = url
     try:
         while True:
-            if current in visited:
-                chain.append({'URL': current, 'Status': 'Loop detected', 'Status Code': 'Loop', 'Server': 'N/A'})
+            if current_url in visited:
+                # loop detected
+                chain.append({
+                    'URL': current_url,
+                    'Status': 'Loop detected',
+                    'Status Code': 'Loop',
+                    'Server': 'N/A'
+                })
                 break
-            visited.add(current)
-            resp = requests.get(current, timeout=TIMEOUT, allow_redirects=False)
-            sc = resp.status_code
-            stxt = status_names.get(sc, 'Unknown')
+
+            visited.add(current_url)
+            resp = requests.get(current_url, timeout=TIMEOUT, allow_redirects=False)
+            status = resp.status_code
+            status_text = status_names.get(status, 'Unknown')
             server = get_server_name(resp.headers)
-            chain.append({'URL': current, 'Status': stxt, 'Status Code': sc, 'Server': server})
-            if sc in (301,302,303,307,308):
-                loc = resp.headers.get('Location')
-                if not loc: break
-                current = urljoin(current, loc)
+            chain.append({
+                'URL': current_url,
+                'Status': status_text,
+                'Status Code': status,
+                'Server': server
+            })
+
+            if status in (301, 302, 303, 307, 308):
+                redirect_url = resp.headers.get('Location')
+                if not redirect_url:
+                    break
+                # Absolute URL handling
+                if redirect_url.startswith('/'):
+                    from urllib.parse import urljoin
+                    redirect_url = urljoin(current_url, redirect_url)
+                current_url = redirect_url
             else:
                 break
-    except:
-        chain.append({'URL': current, 'Status': 'Error', 'Status Code': 'Error', 'Server': 'N/A'})
+    except Exception as e:
+        chain.append({
+            'URL': current_url,
+            'Status': 'Error',
+            'Status Code': 'Error',
+            'Server': 'N/A'
+        })
     return chain
 
-def get_status_fill(c):
-    try: c = int(c)
-    except: return PatternFill(start_color="FFFFFF", fill_type=None)
-    if 200<=c<300: col="C6EFCE"
-    elif 300<=c<400: col="FFF2CC"
-    elif 400<=c<600: col="F8CBAD"
-    else: col="FFFFFF"
-    return PatternFill(start_color=col, fill_type="solid")
+# === Render redirect chain in markdown for UI ===
+def render_redirect_chain(chain):
+    if not chain:
+        return "No redirection data."
 
-def adjust_column_widths(ws):
-    for col in ws.columns:
-        w = max(len(str(cell.value)) for cell in col if cell.value) + 4
-        ws.column_dimensions[col[0].column_letter].width = w
+    display = "🔗 **Redirect Chain:**  \n"
+    indent = "  "*4
+    for i, step in enumerate(chain):
+        status_code = step['Status Code']
+        url = step['URL']
+        server = step['Server']
+        status_text = step['Status']
 
-def to_excel(df_sum, df_full):
-    wb = Workbook()
-    ws1 = wb.active; ws1.title = "Summary"
-    for ridx,row in enumerate(dataframe_to_rows(df_sum, index=False, header=True),1):
-        ws1.append(row)
-        for cell in ws1[ridx]:
-            if ridx==1:
-                cell.font=Font(bold=True); cell.alignment=Alignment(horizontal="center")
-            else:
-                cell.fill = get_status_fill(row[2])
-    adjust_column_widths(ws1)
+        # Colored icon based on status code
+        icon = "⚫"
+        if isinstance(status_code, int):
+            if 200 <= status_code < 300:
+                icon = "🟢"
+            elif 300 <= status_code < 400:
+                icon = "🟡"
+            elif 400 <= status_code < 600:
+                icon = "🔴"
+        elif status_code == 'Loop':
+            icon = "🔄"
+        elif status_code == 'Error':
+            icon = "❌"
 
-    ws2 = wb.create_sheet("Tracking")
-    for url, grp in df_full.groupby("Original URL"):
-        ws2.append([f"Redirect Chain for: {url}"])
-        ws2.append([])
-        for i,row in enumerate(dataframe_to_rows(grp, index=False, header=True)):
-            ws2.append(row)
-            if i>0:
-                for cell in ws2[ws2.max_row]:
-                    cell.fill = get_status_fill(row[3])
-        ws2.append([])
-    adjust_column_widths(ws2)
-
-    buf = BytesIO(); wb.save(buf); buf.seek(0)
-    return buf
-
-# === UI ===
-st.set_page_config("URL Status & Redirect Checker", layout="wide")
+        indent = " " * (4 * i)
+        display += f"{indent} └─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"+ "\n&nbsp;"
+    return display
+# === Streamlit UI ===
+st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
-# Session state for clear
+# Initialize session state
 if "clear_triggered" not in st.session_state:
     st.session_state.clear_triggered = False
 if "text_input" not in st.session_state:
     st.session_state.text_input = ""
+if "uploaded_file" not in st.session_state:
+    st.session_state.uploaded_file = None
 
-# Clear button
+# Clear Button Logic
 if st.button("🧹 Clear All"):
     st.session_state.text_input = ""
+    st.session_state.uploaded_file = None
     st.session_state.clear_triggered = True
     st.rerun()
-if st.session_state.clear_triggered:
-    st.session_state.clear_triggered = False
 
-st.markdown("Upload **OR** Paste URLs below (one per line).")
 
-# Sample Excel download
-with st.expander("📄 Sample Excel format"):
-    df_s = pd.DataFrame({"Original URL":["https://example.com","https://abc.com"]})
-    buf = BytesIO(); df_s.to_excel(buf, index=False); buf.seek(0)
-    st.download_button("⬇️ Download Sample Excel", buf, "sample.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+st.markdown("""
+Upload an Excel file **or paste URLs** (one per line).  
+The app will check HTTP status codes and follow redirects, showing full redirect chains.
 
-uploaded_file = st.file_uploader("📁 Upload Excel (.xlsx)", type="xlsx")
-text_input = st.text_area("🔽 Paste URLs manually:", key="text_input", height=150)
+---
 
-# Input logic
+🔒 **Privacy Notice**  
+Uploaded or pasted data is never stored or shared. All processing happens in-memory only.
+
+---
+🟢 200 → All good! | 🟡 301 → This page has permanently moved somewhere else. | 🔴 404 → Oops! The page was not found. | 🔄 Loop → The URL keeps redirecting back and forth. | ❌ Error → Couldn’t check this URL, please try again later.
+""")
+
+# --- Upload Excel ---
+uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx", key="uploaded_file")
+
+# --- Sample file download ---
+with st.expander("📄 Download sample Excel format"):
+    sample_df = pd.DataFrame({
+        "Original URL": [
+            "https://example.com",
+            "https://abc.com"
+        ]
+    })
+    sample_buffer = BytesIO()
+    sample_df.to_excel(sample_buffer, index=False)
+    sample_buffer.seek(0)
+
+    st.download_button(
+        label="⬇️ Download Sample Excel",
+        data=sample_buffer,
+        file_name="sample_urls.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    st.markdown("📌 Format: One column named **Original URL**, one URL per row.")
+
+# --- Text input option ---
+st.markdown("#### Or paste URLs manually below:")
+text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="text_input")
+
+
+# --- Collect URLs from input ---
 urls = []
+errors_blocked = []
+
 if uploaded_file and not text_input.strip():
-    df = pd.read_excel(uploaded_file)
-    if 'Original URL' not in df.columns:
-        st.error("Excel must have 'Original URL' column."); st.stop()
-    urls = df['Original URL'].dropna().astype(str).tolist()
+    if uploaded_file is not None:
+        try:
+            df_in = pd.read_excel(uploaded_file)
+            df_in.columns = [str(c) for c in df_in.columns]
+            if 'Original URL' not in df_in.columns:
+                st.error("❌ Excel must have column named 'Original URL'.")
+                st.stop()
+            urls = df_in['Original URL'].dropna().astype(str).tolist()
+        except Exception as e:
+            st.error(f"❌ Error reading Excel file: {e}")
+
 elif text_input.strip() and not uploaded_file:
-    urls = [l.strip() for l in text_input.splitlines()]
+    if text_input.strip():
+        urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
 else:
-    st.info("📌 Provide *either* Excel *or* manual URLs.")
+    st.info("Please provide either Excel OR manual URLs — not both.")
+    st.stop()
+# Remove duplicates and blocked URLs
+urls_unique = []
+for url in urls:
+    if is_blocked_url(url):
+        errors_blocked.append(url)
+    elif url not in urls_unique:
+        urls_unique.append(url)
+
+if errors_blocked:
+    st.warning(f"⚠️ The following URLs contain the forbidden string 'Preview link' and will be skipped:\n" + "\n".join(errors_blocked))
+
+if not urls_unique:
+    st.warning("📌 Please upload or paste valid URLs to proceed.")
     st.stop()
 
-# Validate / Clean URLs
-valid, skipped = [], []
-for u in urls:
-    if is_blocked_url(u) or not is_valid_url(u):
-        skipped.append(u)
-    else:
-        valid.append(u)
+# --- Check URLs with concurrency ---
+st.info(f"🔍 Checking {len(urls_unique)} unique URLs. Please wait...")
 
-if not valid:
-    st.warning("No valid URLs to process."); st.stop()
-if skipped:
-    st.warning("Skipped invalid/blocked URLs:\n" + "\n".join(skipped))
-
-st.info(f"🔍 Checking {len(valid)} URLs...")
 results = {}
-with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-    futures = {ex.submit(check_redirection_chain, u):u for u in valid}
-    for f in as_completed(futures):
-        u = futures[f]
-        try: results[u] = f.result()
-        except: results[u] = [{'URL':u,'Status':'Error','Status Code':'Error','Server':'N/A'}]
-st.success("✅ Done!")
+with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    futures = {executor.submit(check_redirection_chain, url): url for url in urls_unique}
+    for future in as_completed(futures):
+        url = futures[future]
+        try:
+            chain = future.result()
+            results[url] = chain
+        except Exception:
+            results[url] = [{
+                'URL': url,
+                'Status': 'Error',
+                'Status Code': 'Error',
+                'Server': 'N/A'
+            }]
 
-# Prepare dataframes
-sum_rows, all_rows = [], []
-for o,chain in results.items():
-    fin = chain[-1]
-    sum_rows.append({"Original URL":o,"Final URL":fin["URL"],"Status Code":fin["Status Code"],"Server":fin["Server"]})
-    for i, step in enumerate(chain):
+st.success("✅ URL checking complete!")
+
+# --- Summary Sheet: Original -> Final Step ---
+summary_rows = []
+for orig_url, chain in results.items():
+    final_step = chain[-1] if chain else {
+        "URL": orig_url,
+        "Status": "Error",
+        "Status Code": "Error",
+        "Server": "N/A"
+    }
+    summary_rows.append({
+        "Original URL": orig_url,
+        "Final URL": final_step["URL"],
+        "Status Code": final_step["Status Code"],
+        "Server": final_step["Server"]
+    })
+
+df_summary = pd.DataFrame(summary_rows).drop_duplicates()
+# --- Prepare DataFrame for display and export ---
+all_rows = []
+for orig_url, chain in results.items():
+    for idx, step in enumerate(chain):
         all_rows.append({
-            "Original URL":o, "Redirect Step":i+1, "Redirected URL":step["URL"],
-            "Status Code":step["Status Code"], "Status Description":step["Status"], "Server":step["Server"]
+            "Original URL": orig_url,
+            "Redirect Step": idx + 1,
+            "Redirected URL": step['URL'],
+            "Status Code": step['Status Code'],
+            "Status Description": step['Status'],
+            "Server": step['Server']
         })
-df_sum = pd.DataFrame(sum_rows)
-df_full = pd.DataFrame(all_rows)
 
-# Search/filter
-search = st.text_input("🔎 Search URLs or servers:")
-df_disp = df_full[df_full.apply(lambda r: search.lower() in str(r.values).lower(), axis=1)] if search else df_full
-st.dataframe(df_disp, use_container_width=True)
+df_results = pd.DataFrame(all_rows)
 
-# Excel export
-out = to_excel(df_sum, df_full)
-st.download_button("📥 Download Results as Excel", out, "results.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+# --- Filter/Search UI ---
+st.markdown("### 🔎 Filter / Search URLs")
+search_term = st.text_input("Search in Original or Redirected URLs or Status Codes or Server names:")
 
-# Redirect chain preview
-st.markdown("### 🔗 Redirect Chain Preview")
-for o, chain in results.items():
-    with st.expander(o):
-        for step in chain:
-            st.markdown(f"`{step['Status Code']}` → **{step['Status']}** → `{step['URL']}`  *(Server: {step['Server']})*")
+if search_term:
+    df_filtered = df_results[
+        df_results["Original URL"].str.contains(search_term, case=False, na=False) |
+        df_results["Redirected URL"].str.contains(search_term, case=False, na=False) |
+        df_results["Server"].str.contains(search_term, case=False, na=False) |
+        df_results["Status Code"].astype(str).str.contains(search_term, case=False, na=False)    ]
+else:
+    df_filtered = df_results
 
-# Footer
-st.markdown("---\n<div style='text-align:center;color:gray;'>© 2025 Meet Chauhan.</div>", unsafe_allow_html=True)
+# --- Show data in table ---
+st.markdown("### 📋 URL Status & Redirect Results")
+
+# Center align table via st.markdown and CSS
+st.markdown(
+    """
+    <style>
+    .dataframe tbody tr th, .dataframe tbody tr td {
+        text-align: center !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.dataframe(df_filtered, use_container_width=True)
+
+# --- Download Excel with formatting ---
+def to_excel(df_summary, df_tracking):
+    wb = Workbook()
+
+    # === Sheet 1: Summary ===
+    ws1 = wb.active
+    ws1.title = "URL Redirect Results"
+
+    for r_idx, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), 1):
+        ws1.append(row)
+        if r_idx == 1:
+            for cell in ws1[r_idx]:
+                cell.font = Font(bold=True)
+                cell.alignment = Alignment(horizontal="center")
+        else:
+            status_code = row[2]
+            fill = get_status_fill(status_code)
+            for cell in ws1[r_idx]:
+                cell.fill = fill
+
+    ws1.auto_filter.ref = ws1.dimensions  # Add Excel filter
+    adjust_column_widths(ws1)
+
+    # === Sheet 2: Redirection Tracking (Grouped) ===
+    ws2 = wb.create_sheet("Redirection Tracking")
+
+    grouped = df_tracking.groupby("Original URL")
+
+    for url, group in grouped:
+        ws2.append([f"Redirect Chain for: {url}"])
+        for cell in ws2[ws2.max_row]:
+            cell.font = Font(bold=True, color="0000FF")
+        ws2.append([])
+
+        for r_idx, row in enumerate(dataframe_to_rows(group, index=False, header=True)):
+            ws2.append(row)
+            if r_idx > 0:  # skip header row
+                status_code = row[3]
+                fill = get_status_fill(status_code)
+                for cell in ws2[ws2.max_row]:
+                    cell.fill = fill
+
+        ws2.append([])  # Spacer
+
+    adjust_column_widths(ws2)
+    ws2.auto_filter.ref = ws2.dimensions
+
+    # === Save to stream ===
+    stream = BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+# === Helpers ===
+def get_status_fill(code):
+    try:
+        code = int(code)
+    except:
+        return PatternFill(start_color="FFFFFF", fill_type=None)
+
+    if 200 <= code < 300:
+        return PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")  # Green
+    elif 300 <= code < 400:
+        return PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")  # Yellow
+    elif 400 <= code < 600:
+        return PatternFill(start_color="F8CBAD", end_color="F8CBAD", fill_type="solid")  # Red
+    return PatternFill(start_color="FFFFFF", fill_type=None)
+
+def adjust_column_widths(ws):
+    for col in ws.columns:
+        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = max_len + 4
+
+excel_data = to_excel(df_summary, df_results)
+
+st.download_button(
+    label="📥 Download Results as Excel",
+    data=excel_data,
+    file_name="url_status_with_redirect_results.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# --- Show redirect chains as collapsible markdown ---
+st.markdown("### 🔗 Redirect Chains Preview (expand below)")
+
+for orig_url, chain in results.items():
+    with st.expander(orig_url, expanded=False):
+        st.markdown(render_redirect_chain(chain))
+
+# --- Footer ---
+st.markdown("""
+---
+<div style='text-align: center; font-size: 0.9em; color: gray;'>
+© 2025 Meet Chauhan. All rights reserved.
+</div>
+""", unsafe_allow_html=True)
