@@ -117,8 +117,8 @@ def render_redirect_chain(chain):
         lines.append(f"{indent}└─&gt; {icon} {status_code} → <code>{url}</code> [<strong>{status_text}</strong>, Server: {server}]<br>")
 
     html = "<div style='white-space: pre-wrap; font-family: monospace; font-size: 0.9em'>" + "".join(lines) + "</div>"
-    return (html, unsafe_allow_html=True)
-
+    return html
+st.markdown(render_redirect_chain(chain), unsafe_allow_html=True)
 # st.markdown(f"```plaintext\n{display}\n```")
 # === Streamlit UI ===
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
