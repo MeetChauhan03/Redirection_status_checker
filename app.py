@@ -213,7 +213,6 @@ text_input = st.text_area(
     key="text_input",
     value="" if "text_input" not in st.session_state else st.session_state["text_input"]
 )
-chain = compare_redirection_states(url)
 
 # Replace your clear button logic with this:
 if st.button("🧹 Clear All Inputs"):
@@ -262,8 +261,10 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     #     url = futures[future]
     for url, future in zip(urls_unique, futures):
         try:
-            chain = future.result()
-            # results[url] = chain
+            chain = compare_redirection_states(url)
+            # chain = future.result()
+            # results[url] = 
+            
         except Exception:
             results[url] = [{
                 'URL': url,
