@@ -191,7 +191,7 @@ with st.expander("📄 Download sample Excel format"):
 st.markdown("#### Or paste URLs manually below:")
 text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="text_input")
 if st.button("🧹 Clear All"):
-        st.session_state.url_input = ""
+        # st.session_state.url_input = ""
         st.session_state.clear_triggered = True
         st.rerun()
         # st.rerun
