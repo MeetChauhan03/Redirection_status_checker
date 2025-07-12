@@ -186,6 +186,11 @@ text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="te
 # Clear button BELOW text input
 if st.button("🧹 Clear All Inputs"):
     st.session_state.clear_all_triggered = True
+    # Clear specific input keys
+    if "uploaded_file" in st.session_state:
+        st.session_state.pop("uploaded_file")
+    if "text_input" in st.session_state:
+        st.session_state["text_input"] = ""  # Reset textarea content
     st.rerun()  # Will trigger rerun with cleared state
 
 # --- Collect URLs from input ---
