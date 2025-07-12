@@ -161,7 +161,12 @@ Uploaded or pasted data is never stored or shared. All processing happens in-mem
 """)
 
 # --- Upload Excel ---
-uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx")
+uploaded_file = st.file_uploader(
+    "📁 Upload Excel file (.xlsx)",
+    type="xlsx",
+    key="uploaded_file"
+)
+
 
 # --- Sample file download ---
 with st.expander("📄 Download sample Excel format"):
@@ -185,7 +190,13 @@ with st.expander("📄 Download sample Excel format"):
 
 # --- Text input option ---
 st.markdown("#### Or paste URLs manually below:")
-text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
+# text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
+text_input = st.text_area(
+    "🔽 Paste URLs (one per line):",
+    height=150,
+    key="text_input",
+    value="" if "text_input" not in st.session_state else st.session_state["text_input"]
+)
 
 # --- Collect URLs from input ---
 urls = []
