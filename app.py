@@ -114,9 +114,9 @@ def render_redirect_chain(chain):
         elif status_code == 'Error':
             icon = "❌"
 
-        indent=" "*i
+        indent = "&nbsp;" * (4 * i)
         display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"
-        # indent += "    "
+        indent += "    "*i
     return display
 # st.markdown(f"```plaintext\n{display}\n```")
 # === Streamlit UI ===
