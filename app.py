@@ -33,7 +33,7 @@ def clear_inputs():
             del st.session_state[key]
 
     st.session_state.clear_all_triggered = True
-    st.experimental_rerun()
+    st.rerun()
 
 # Replace your clear button logic with this:
 if st.button("🧹 Clear All Inputs"):
