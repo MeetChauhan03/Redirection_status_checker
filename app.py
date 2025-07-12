@@ -280,20 +280,23 @@ def to_excel(df):
     ws.title = "URL Redirect Results"
 
     for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
-        for c_idx, value in enumerate(row, 1):
-            cell = ws.cell(row=r_idx, column=c_idx, value=value)
-            if r_idx == 1:
-                cell.font = Font(bold=True)
-    for col in ws.columns:
-        max_length = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            try:
-                if cell.value:
-                    max_length = max(max_length, len(str(cell.value)))
-            except:
-                pass
-        ws.column_dimensions[col_letter].width = max_length + 3
+       ws1.append(row)
+    for cell in ws1[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+    for col in ws1.columns:
+        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws1.column_dimensions[col[0].column_letter].width = max_len + 5
+    
+    ws2 = wb.create_sheet("Redirection Tracking")
+    for row in dataframe_to_rows(df_tracking, index=False, header=True):
+        ws2.append(row)
+    for cell in ws2[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+    for col in ws2.columns:
+        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
+        ws2.column_dimensions[col[0].column_letter].width = max_len + 5
 
     stream = BytesIO()
     wb.save(stream)
