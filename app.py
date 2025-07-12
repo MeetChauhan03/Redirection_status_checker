@@ -156,15 +156,7 @@ The app will check HTTP status codes and follow redirects, showing full redirect
 Uploaded or pasted data is never stored or shared. All processing happens in-memory only.
 
 ---
-🟢 200 → All good!
-
-🟡 301 → This page has permanently moved somewhere else.
-
-🔴 404 → Oops! The page was not found.
-
-🔄 Loop → The URL keeps redirecting back and forth.
-
-❌ Error → Couldn’t check this URL, please try again later.
+🟢 200 → All good! | 🟡 301 → This page has permanently moved somewhere else. | 🔴 404 → Oops! The page was not found. | 🔄 Loop → The URL keeps redirecting back and forth. | ❌ Error → Couldn’t check this URL, please try again later.
 """)
 
 # --- Upload Excel ---
