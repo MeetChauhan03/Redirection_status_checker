@@ -262,7 +262,7 @@ df_results = pd.DataFrame(all_rows)
 
 # --- Filter/Search UI ---
 st.markdown("### 🔎 Filter / Search URLs")
-search_term = st.text_input("Search in Original or Redirected URLs or Server names:")
+search_term = st.text_input("Search in Original or Redirected URLs or Status Codes or Server names:")
 
 if search_term:
     df_filtered = df_results[
