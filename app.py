@@ -92,15 +92,14 @@ def render_redirect_chain(chain):
     if not chain:
         return "No redirection data."
 
-    display = "🔗 **Redirect Chain:**  \n"
-    # indent = "  "
+    lines = ["🔗 <strong>Redirect Chain:</strong><br>"]
+
     for i, step in enumerate(chain):
         status_code = step['Status Code']
         url = step['URL']
         server = step['Server']
         status_text = step['Status']
 
-        # Colored icon based on status code
         icon = "⚫"
         if isinstance(status_code, int):
             if 200 <= status_code < 300:
@@ -114,10 +113,12 @@ def render_redirect_chain(chain):
         elif status_code == 'Error':
             icon = "❌"
 
-        indent=" "*i
-        display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"
-        indent += "    "
-    return f"```\n{display}\n```"
+        indent = "&nbsp;" * (4 * i)  # HTML indentation
+        lines.append(f"{indent}└─&gt; {icon} {status_code} → <code>{url}</code> [<strong>{status_text}</strong>, Server: {server}]<br>")
+
+    html = "<div style='white-space: pre-wrap; font-family: monospace; font-size: 0.9em'>" + "".join(lines) + "</div>"
+    return html
+
 # st.markdown(f"```plaintext\n{display}\n```")
 # === Streamlit UI ===
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
