@@ -204,9 +204,14 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"❌ Error reading Excel file: {e}")
 
-if text_input.strip():
-    urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
-    
+raw_lines = [line.strip() for line in st.session_state.url_input.strip().splitlines() if line.strip()]
+valid_lines = [line for line in raw_lines if is_valid_url(line)]
+invalid_lines = [line for line in raw_lines if not is_valid_url(line)]
+
+if invalid_lines:
+    st.warning(f"⚠️ Skipping {len(invalid_lines)} invalid entries that do not appear to be valid URLs.")
+
+urls += valid_lines
 
 # Remove duplicates and blocked URLs
 urls_unique = []
