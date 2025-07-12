@@ -93,7 +93,7 @@ def render_redirect_chain(chain):
         return "No redirection data."
 
     display = "🔗 **Redirect Chain:**  \n"
-    indent = "  "
+    # indent = "  "
     for i, step in enumerate(chain):
         status_code = step['Status Code']
         url = step['URL']
@@ -113,7 +113,7 @@ def render_redirect_chain(chain):
             icon = "🔄"
         elif status_code == 'Error':
             icon = "❌"
-        
+
         indent=" "*i
         display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n\n"
         indent += "    "
