@@ -237,8 +237,7 @@ if search_term:
         df_results["Original URL"].str.contains(search_term, case=False, na=False) |
         df_results["Redirected URL"].str.contains(search_term, case=False, na=False) |
         df_results["Server"].str.contains(search_term, case=False, na=False) |
-        df_results["Status Code"].str.contains(search_term, case=False,na=False)
-    ]
+        df_results["Status Code"].astype(str).str.contains(search_term, case=False, na=False)    ]
 else:
     df_filtered = df_results
 
