@@ -142,7 +142,7 @@ st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
 if "clear_triggered" not in st.session_state:
-    st.session_state["clear_triggered"] = False
+    st.session_state.clear_triggered = False
 
 if st.session_state.clear_triggered:
     st.session_state.clear_triggered = False
