@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.styles import Font
+from openpyxl.styles import Font, Alignment
 
 # === Configuration ===
 MAX_WORKERS = 20
