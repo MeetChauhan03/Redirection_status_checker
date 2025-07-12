@@ -361,7 +361,7 @@ def get_status_fill(code):
 def adjust_column_widths(ws):
     for col in ws.columns:
         max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = max_len + 5
+        ws.column_dimensions[col[0].column_letter].width = max_len + 4
 
 excel_data = to_excel(df_summary, df_results)
 
