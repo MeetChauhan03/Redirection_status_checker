@@ -181,10 +181,10 @@ with st.expander("📄 Download sample Excel format"):
 
 # --- Text input option ---
 st.markdown("#### Or paste URLs manually below:")
-text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
+# text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
 if "clear_triggered" not in st.session_state:
     st.session_state["clear_triggered"] = False
-    col1, col2 = st.columns([3, 1])
+col1, col2 = st.columns([3, 1])
 with col1:
     text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="url_input")
 
