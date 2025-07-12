@@ -26,6 +26,19 @@ status_names = {
     500: 'Internal Server Error'
 }
 
+def clear_inputs():
+    # Clear session keys only if they exist
+    for key in ["uploaded_file", "text_input"]:
+        if key in st.session_state:
+            del st.session_state[key]
+
+    st.session_state.clear_all_triggered = True
+    st.experimental_rerun()
+
+# Replace your clear button logic with this:
+if st.button("🧹 Clear All Inputs"):
+    clear_inputs()
+
 # === Utility: Get server name from headers ===
 def get_server_name(headers):
     akamai_indicators = ["AkamaiGHost","akamaitechnologies.com","X-Akamai-Transformed"]
@@ -134,15 +147,6 @@ def render_redirect_chain(chain):
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
 st.title("🔗 Bulk URL Status & Redirect Checker")
 
-if "clear_all_triggered" not in st.session_state:
-    st.session_state.clear_all_triggered = False
-
-# When user clicks the Clear button, flag it
-if st.session_state.clear_all_triggered:
-    st.session_state.clear_all_triggered = False
-    st.experimental_set_query_params()  # Optional: removes params if any
-    st.rerun()
-
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
 The app will check HTTP status codes and follow redirects, showing full redirect chains.
@@ -157,7 +161,7 @@ Uploaded or pasted data is never stored or shared. All processing happens in-mem
 """)
 
 # --- Upload Excel ---
-uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx", key="uploaded_file")
+uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx")
 
 # --- Sample file download ---
 with st.expander("📄 Download sample Excel format"):
@@ -181,40 +185,26 @@ with st.expander("📄 Download sample Excel format"):
 
 # --- Text input option ---
 st.markdown("#### Or paste URLs manually below:")
-text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="text_input")
-
-# Clear button BELOW text input
-if st.button("🧹 Clear All Inputs"):
-    st.session_state.clear_all_triggered = True
-    # Clear specific input keys
-    if "uploaded_file" in st.session_state:
-        st.session_state.pop("uploaded_file")
-    if "text_input" in st.session_state:
-        st.session_state["text_input"] = ""  # Reset textarea content
-    st.rerun()  # Will trigger rerun with cleared state
+text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
 
 # --- Collect URLs from input ---
 urls = []
 errors_blocked = []
 
-if uploaded_file and not text_input.strip():
-    if uploaded_file is not None:
-        try:
-            df_in = pd.read_excel(uploaded_file)
-            df_in.columns = [str(c) for c in df_in.columns]
-            if 'Original URL' not in df_in.columns:
-                st.error("❌ Excel must have column named 'Original URL'.")
-                st.stop()
-            urls = df_in['Original URL'].dropna().astype(str).tolist()
-        except Exception as e:
-            st.error(f"❌ Error reading Excel file: {e}")
+if uploaded_file is not None:
+    try:
+        df_in = pd.read_excel(uploaded_file)
+        df_in.columns = [str(c) for c in df_in.columns]
+        if 'Original URL' not in df_in.columns:
+            st.error("❌ Excel must have column named 'Original URL'.")
+            st.stop()
+        urls = df_in['Original URL'].dropna().astype(str).tolist()
+    except Exception as e:
+        st.error(f"❌ Error reading Excel file: {e}")
 
-elif text_input.strip() and not uploaded_file:
-    if text_input.strip():
-        urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
-else:
-    st.info("Please provide either Excel OR manual URLs — not both.")
-    st.stop()
+if text_input.strip():
+    urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
+
 # Remove duplicates and blocked URLs
 urls_unique = []
 for url in urls:
