@@ -35,9 +35,6 @@ def clear_inputs():
     st.session_state.clear_all_triggered = True
     st.rerun()
 
-# Replace your clear button logic with this:
-if st.button("🧹 Clear All Inputs"):
-    clear_inputs()
 
 # === Utility: Get server name from headers ===
 def get_server_name(headers):
@@ -197,6 +194,10 @@ text_input = st.text_area(
     key="text_input",
     value="" if "text_input" not in st.session_state else st.session_state["text_input"]
 )
+
+# Replace your clear button logic with this:
+if st.button("🧹 Clear All Inputs"):
+    clear_inputs()
 
 # --- Collect URLs from input ---
 urls = []
