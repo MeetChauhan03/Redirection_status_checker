@@ -93,7 +93,7 @@ def render_redirect_chain(chain):
         return "No redirection data."
 
     display = "🔗 **Redirect Chain:**  \n"
-    indent = "  "
+    indent = "  "*4
     for i, step in enumerate(chain):
         status_code = step['Status Code']
         url = step['URL']
@@ -114,7 +114,7 @@ def render_redirect_chain(chain):
         elif status_code == 'Error':
             icon = "❌"
 
-        indent = " " * (20 * i)
+        indent = " " * (4 * i)
         display += f"{indent} └─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"+ "\n&nbsp;"
     return display
 # === Streamlit UI ===
