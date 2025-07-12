@@ -210,21 +210,31 @@ if not urls_unique:
 # --- Check URLs with concurrency ---
 st.info(f"🔍 Checking {len(urls_unique)} unique URLs. Please wait...")
 
-results = {}
+results = []
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    # futures = [executor.submit(check_url_chain, url) for url in urls_unique]
     futures = {executor.submit(check_redirection_chain, url): url for url in urls_unique}
-    for future in as_completed(futures):
-        url = futures[future]
-        try:
-            chain = future.result()
-            results[url] = chain
-        except Exception:
-            results[url] = [{
-                'URL': url,
-                'Status': 'Error',
-                'Status Code': 'Error',
-                'Server': 'N/A'
-            }]
+    for future in futures:
+        results.append(future.result())
+# with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+#     futures = {executor.submit(check_redirection_chain, url): url for url in urls_unique}
+#     for future in as_completed(futures):
+#         url = futures[future]
+#         try:
+#             chain = future.result()
+#             results[url] = chain
+#         except Exception:
+#             results[url] = [{
+#                 'URL': url,
+#                 'Status': 'Error',
+#                 'Status Code': 'Error',
+#                 'Server': 'N/A'
+#             }]
+# === Generate Summary Sheet ===
+df_summary = pd.DataFrame([
+    {"Original URL": orig, "Final URL": final_url, "Status Code": status_code, "Server": server}
+    for orig, _, final_url, status_code, server in results
+]).drop_duplicates()
 
 st.success("✅ URL checking complete!")
 
