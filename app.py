@@ -126,7 +126,7 @@ def render_redirect_chain(chain):
         "</div>"
     )
     return html
-st.markdown(render_redirect_chain(chain), unsafe_allow_html=True)
+# st.markdown(render_redirect_chain(chain), unsafe_allow_html=True)
 # st.markdown(f"```plaintext\n{display}\n```")
 # === Streamlit UI ===
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
