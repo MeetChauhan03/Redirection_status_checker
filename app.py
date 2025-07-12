@@ -179,13 +179,8 @@ with st.expander("📄 Download sample Excel format"):
 
 # --- Text input option ---
 st.markdown("#### Or paste URLs manually below:")
-
-col1, col2 = st.columns([3, 1])
-with col1:
-    text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="url_input")
-
-with col2:
-    if st.button("🧹 Clear All"):
+text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
+if st.button("🧹 Clear All"):
         st.session_state.url_input = ""
         st.session_state.clear_triggered = True
         st.experimental_rerun()
@@ -208,10 +203,7 @@ if uploaded_file is not None:
 
 if text_input.strip():
     urls += [line.strip() for line in text_input.strip().splitlines() if line.strip()]
-    if st.button("🧹 Clear All"):
-        st.session_state.url_input = ""
-        st.session_state.clear_triggered = True
-        st.experimental_rerun()
+    
 
 # Remove duplicates and blocked URLs
 urls_unique = []
