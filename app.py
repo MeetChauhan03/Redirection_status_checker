@@ -144,6 +144,13 @@ st.title("🔗 Bulk URL Status & Redirect Checker")
 if "clear_triggered" not in st.session_state:
     st.session_state["clear_triggered"] = False
 
+if st.session_state.clear_triggered:
+    st.session_state.clear_triggered = False
+    st.session_state["text_input"] = ""
+    st.session_state["uploaded_file"] = None
+    st.session_state["results"] = {}
+    st.rerun()
+
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
 The app will check HTTP status codes and follow redirects, showing full redirect chains.
@@ -158,7 +165,7 @@ Uploaded or pasted data is never stored or shared. All processing happens in-mem
 """)
 
 # --- Upload Excel ---
-uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx")
+uploaded_file = st.file_uploader("📁 Upload Excel file (.xlsx)", type="xlsx", key="uploaded_file")
 
 # --- Sample file download ---
 with st.expander("📄 Download sample Excel format"):
@@ -182,7 +189,7 @@ with st.expander("📄 Download sample Excel format"):
 
 # --- Text input option ---
 st.markdown("#### Or paste URLs manually below:")
-text_input = st.text_area("🔽 Paste URLs (one per line):", height=150)
+text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="text_input")
 if st.button("🧹 Clear All"):
         st.session_state.url_input = ""
         st.session_state.clear_triggered = True
