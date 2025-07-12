@@ -294,7 +294,7 @@ st.dataframe(df_filtered, use_container_width=True)
 def to_excel(df_summary , df_tracking):
     wb = Workbook()
     ws1 = wb.active
-    ws.title = "URL Redirect Results"
+    1.title = "URL Redirect Results"
 
     for r_idx, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), 1):
        ws1.append(row)
