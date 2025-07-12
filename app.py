@@ -227,10 +227,24 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             }]
 
 st.success("✅ URL checking complete!")
-df_summary = pd.DataFrame([
-    {"Original URL": orig_url, "Final URL": final_url, "Status Code": status_code, "Server": server}
-    for orig_url, _, final_url, status_code, server in results
-]).drop_duplicates()
+
+# --- Summary Sheet: Original -> Final Step ---
+summary_rows = []
+for orig_url, chain in results.items():
+    final_step = chain[-1] if chain else {
+        "URL": orig_url,
+        "Status": "Error",
+        "Status Code": "Error",
+        "Server": "N/A"
+    }
+    summary_rows.append({
+        "Original URL": orig_url,
+        "Final URL": final_step["URL"],
+        "Status Code": final_step["Status Code"],
+        "Server": final_step["Server"]
+    })
+
+df_summary = pd.DataFrame(summary_rows).drop_duplicates()
 # --- Prepare DataFrame for display and export ---
 all_rows = []
 for orig_url, chain in results.items():
