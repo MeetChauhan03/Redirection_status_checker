@@ -79,7 +79,7 @@ def check_redirection_chain(url):
                 break
 
             visited.add(current_url)
-            resp = requests.get(current_url, timeout=TIMEOUT, allow_redirects=False)
+            resp = requests.get(current_url,headers=headers, timeout=TIMEOUT, allow_redirects=False)
             status = resp.status_code
             status_text = status_names.get(status, 'Unknown')
             server = get_server_name(resp.headers)
