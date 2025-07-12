@@ -402,7 +402,7 @@ st.download_button(
 # --- Show redirect chains as collapsible markdown ---
 st.markdown("### 🔗 Redirect Chains Preview (expand below)")
 
-for orig_url, chain in results.items():
+for orig_url, chain in results:
     with st.expander(orig_url, expanded=False):
         st.markdown(render_redirect_chain(chain))
 
