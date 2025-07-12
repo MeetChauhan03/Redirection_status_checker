@@ -114,7 +114,7 @@ def render_redirect_chain(chain):
         elif status_code == 'Error':
             icon = "❌"
 
-        display += f"{indent} >> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"
+        display += f"{indent}└─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"
         indent += "    "
     return display
 
