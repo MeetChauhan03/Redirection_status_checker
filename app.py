@@ -257,7 +257,7 @@ st.success("✅ URL checking complete!")
 
 # --- Summary Sheet: Original -> Final Step ---
 summary_rows = []
-for orig_url, chain in results.items():
+for orig_url, chain in results:
     final_step = chain[-1] if chain else {
         "URL": orig_url,
         "Status": "Error",
