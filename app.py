@@ -296,7 +296,7 @@ def to_excel(df_summary , df_tracking):
     ws = wb.active
     ws.title = "URL Redirect Results"
 
-    for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+    for r_idx, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), 1):
        ws1.append(row)
     for cell in ws1[1]:
         cell.font = Font(bold=True)
