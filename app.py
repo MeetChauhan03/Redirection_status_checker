@@ -142,14 +142,6 @@ if "text_input" not in st.session_state:
 if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
 
-# Clear Button Logic
-if st.button("🧹 Clear All"):
-    st.session_state.text_input = ""
-    st.session_state.uploaded_file = None
-    st.session_state.clear_triggered = True
-    st.rerun()
-
-
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
 The app will check HTTP status codes and follow redirects, showing full redirect chains.
@@ -190,6 +182,12 @@ with st.expander("📄 Download sample Excel format"):
 st.markdown("#### Or paste URLs manually below:")
 text_input = st.text_area("🔽 Paste URLs (one per line):", height=150, key="text_input")
 
+# Clear Button Logic
+if st.button("🧹 Clear All"):
+    st.session_state.text_input = ""
+    st.session_state.uploaded_file = None
+    st.session_state.clear_triggered = True
+    st.rerun()
 
 # --- Collect URLs from input ---
 urls = []
