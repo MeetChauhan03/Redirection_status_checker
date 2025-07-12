@@ -237,7 +237,7 @@ st.info(f"🔍 Checking {len(urls_unique)} unique URLs. Please wait...")
 
 results = []
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-    futures = [executor.submit(check_redirection_chain, url): url for url in urls_unique]
+    futures = [executor.submit(check_redirection_chain, url) for url in urls_unique]
     # for future in as_completed(futures):
     #     url = futures[future]
     for url, future in zip(urls_unique, futures):
