@@ -114,8 +114,8 @@ def render_redirect_chain(chain):
         elif status_code == 'Error':
             icon = "❌"
 
-        indent = "    " * i
-        display += f"{indent} └─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"+ "&nbsp;\n &nbsp;"
+        indent = " " * (4 * i)
+        display += f"{indent} └─> {icon} {status_code} → `{url}`  [**{status_text}**, Server: {server}]\n"+ "\n&nbsp;"
     return display
 # === Streamlit UI ===
 st.set_page_config(page_title="URL Status & Redirect Checker", layout="wide")
