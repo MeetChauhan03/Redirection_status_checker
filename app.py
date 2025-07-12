@@ -141,7 +141,7 @@ if "clear_all_triggered" not in st.session_state:
 if st.session_state.clear_all_triggered:
     st.session_state.clear_all_triggered = False
     st.experimental_set_query_params()  # Optional: removes params if any
-    st.experimental_rerun()
+    st.rerun()
 
 st.markdown("""
 Upload an Excel file **or paste URLs** (one per line).  
