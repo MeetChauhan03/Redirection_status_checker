@@ -11,7 +11,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 # ================= CONFIG =================
 MAX_WORKERS = 20
 TIMEOUT = 6
-USER_AGENT = "SEO-Redirect-Analyzer/1.0"
+USER_AGENT = "Mozilla/5.0 (Redirect-Analyzer)"
 REDIRECT_CODES = (301, 302, 303, 307, 308)
 
 STATUS_NAMES = {
@@ -21,22 +21,41 @@ STATUS_NAMES = {
     303: "See Other",
     307: "Temporary Redirect",
     308: "Permanent Redirect",
+    400: "Bad Request",
+    401: "Unauthorized",
+    403: "Forbidden",
     404: "Not Found",
     500: "Server Error"
 }
 
-# ================= UI =================
-st.set_page_config("Advanced Redirect Chain Analyzer", layout="wide")
+# ================= UI SETUP =================
+st.set_page_config("URL Redirect Analyzer", layout="wide")
 
 st.markdown("""
 <style>
-.block-container { padding-top: 1.5rem; }
+.block-container { padding-top: 1.2rem; }
 thead tr th, tbody tr td { text-align:center !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🔗 Advanced Redirect Chain Analyzer")
-st.caption("AEM • Akamai • Accurate 301/302 • Enterprise SEO Tool")
+st.title("🔗 Bulk URL Redirect Analyzer")
+st.caption("Accurate 301/302 Detection • AEM & Akamai Safe")
+
+st.markdown("""
+**How it works**
+- Uses `HEAD` for origin (AEM) redirect detection
+- Falls back to `GET` when HEAD is blocked
+- Shows full redirect chains (A → B → C)
+- Exports clean Excel reports
+
+---
+""")
+
+# ================= SESSION HELPERS =================
+def clear_all():
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.experimental_rerun()
 
 # ================= UTILITIES =================
 def get_server_name(headers):
@@ -45,27 +64,30 @@ def get_server_name(headers):
         return "Akamai"
     return headers.get("Server", "Unknown")
 
-def fetch_head(url):
+def fetch_response(url):
+    """HEAD first, fallback to GET"""
     try:
-        return requests.head(
+        r = requests.head(
             url,
             timeout=TIMEOUT,
             allow_redirects=False,
             headers={"User-Agent": USER_AGENT}
         )
+        if r.status_code not in (403, 405):
+            return r, "HEAD"
     except:
-        return None
+        pass
 
-def fetch_get(url):
     try:
-        return requests.get(
+        r = requests.get(
             url,
             timeout=TIMEOUT,
             allow_redirects=False,
             headers={"User-Agent": USER_AGENT}
         )
+        return r, "GET"
     except:
-        return None
+        return None, None
 
 # ================= REDIRECT LOGIC =================
 def check_redirection_chain(start_url):
@@ -77,9 +99,9 @@ def check_redirection_chain(start_url):
         if current_url in visited:
             chain.append({
                 "URL": current_url,
-                "HEAD": "Loop",
-                "GET": "Loop",
-                "Meaning": "Redirect Loop",
+                "Method": "Loop",
+                "Status Code": "Loop",
+                "Status": "Redirect Loop",
                 "Server": "N/A",
                 "Location": ""
             })
@@ -87,57 +109,61 @@ def check_redirection_chain(start_url):
 
         visited.add(current_url)
 
-        head = fetch_head(current_url)
-        get = fetch_get(current_url)
+        resp, method = fetch_response(current_url)
 
-        head_code = head.status_code if head else "Error"
-        get_code = get.status_code if get else "Error"
+        if not resp:
+            chain.append({
+                "URL": current_url,
+                "Method": "N/A",
+                "Status Code": "Error",
+                "Status": "Request Failed",
+                "Server": "N/A",
+                "Location": ""
+            })
+            break
 
-        meaning = STATUS_NAMES.get(head_code, "Unknown")
-        server = get_server_name(get.headers if get else {})
+        code = resp.status_code
+        status = STATUS_NAMES.get(code, "Unknown")
+        server = get_server_name(resp.headers)
 
-        location = ""
-
-        # STRICT PRIORITY: HEAD → GET → STOP
-        if head and head_code in REDIRECT_CODES:
-            location = head.headers.get("Location", "")
-        elif get and get_code in REDIRECT_CODES:
-            location = get.headers.get("Location", "")
-
+        location = resp.headers.get("Location", "")
         if location.startswith("/"):
             location = urljoin(current_url, location)
 
         chain.append({
             "URL": current_url,
-            "HEAD": head_code,
-            "GET": get_code,
-            "Meaning": meaning,
+            "Method": method,
+            "Status Code": code,
+            "Status": status,
             "Server": server,
             "Location": location
         })
 
-        if location and (head_code in REDIRECT_CODES or get_code in REDIRECT_CODES):
+        if code in REDIRECT_CODES and location:
             current_url = location
         else:
             break
 
     return chain
 
-# ================= INPUT =================
-col1, col2 = st.columns([2,1])
+# ================= INPUT UI =================
+col1, col2, col3 = st.columns([2,1,1])
 
 with col1:
     uploaded_file = st.file_uploader("Upload Excel (.xlsx)", type="xlsx")
 
 with col2:
-    sample = pd.DataFrame({"Original URL": ["https://example.com"]})
-    buf = BytesIO()
-    sample.to_excel(buf, index=False)
-    buf.seek(0)
-    st.download_button("Download Sample", buf, "sample.xlsx")
+    text_input = st.text_area("Paste URLs (one per line)", height=120)
 
-text_input = st.text_area("Or paste URLs (one per line)", height=120)
+with col3:
+    st.markdown("### Actions")
+    run = st.button("▶ Run Analysis", use_container_width=True)
+    clear = st.button("🧹 Clear All", use_container_width=True)
 
+if clear:
+    clear_all()
+
+# ================= URL COLLECTION =================
 urls = []
 
 if uploaded_file:
@@ -149,12 +175,15 @@ if text_input.strip():
 
 urls = list(dict.fromkeys(urls))
 
+if not run:
+    st.stop()
+
 if not urls:
-    st.warning("Please provide URLs.")
+    st.warning("Please provide at least one URL.")
     st.stop()
 
 # ================= PROCESS =================
-st.info(f"Checking {len(urls)} URLs...")
+st.info(f"Analyzing {len(urls)} URLs...")
 
 results = []
 
@@ -165,38 +194,37 @@ with ThreadPoolExecutor(MAX_WORKERS) as executor:
         url = future_map[future]
         try:
             results.append((url, future.result()))
-        except Exception:
+        except:
             results.append((url, [{
                 "URL": url,
-                "HEAD": "Error",
-                "GET": "Error",
-                "Meaning": "Error",
+                "Method": "N/A",
+                "Status Code": "Error",
+                "Status": "Execution Error",
                 "Server": "N/A",
                 "Location": ""
             }]))
 
 st.success("Analysis completed.")
 
-# ================= DATA PREP =================
+# ================= DATA =================
 summary = []
-chains_flat = []
+flat = []
 
 for orig, chain in results:
     final = chain[-1]
     summary.append({
         "Original URL": orig,
         "Final URL": final["URL"],
-        "Origin Status (HEAD)": final["HEAD"],
-        "Edge Status (GET)": final["GET"],
+        "Final Status": final["Status Code"],
         "Redirect Count": len(chain) - 1,
-        "Server/CDN": final["Server"]
+        "Server": final["Server"]
     })
 
     for i, step in enumerate(chain, 1):
-        chains_flat.append({"Original URL": orig, "Step": i, **step})
+        flat.append({"Original URL": orig, "Step": i, **step})
 
 df_summary = pd.DataFrame(summary)
-df_chain = pd.DataFrame(chains_flat)
+df_chain = pd.DataFrame(flat)
 
 # ================= DISPLAY =================
 st.markdown("### Executive Summary")
@@ -248,18 +276,18 @@ def export_excel(summary_df, chain_df):
     out.seek(0)
     return out
 
-excel_file = export_excel(df_summary, df_chain)
+excel = export_excel(df_summary, df_chain)
 
 st.download_button(
-    "Download Excel Report",
-    excel_file,
-    "redirect_report.xlsx",
+    "📥 Download Excel Report",
+    excel,
+    "redirect_analysis.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
 st.markdown("""
 ---
-<div style="text-align:center;color:gray;font-size:12px">
-© 2025 Meet Chauhan – Redirect Chain Analyzer
+<div style="text-align:center;font-size:12px;color:gray;">
+© 2025 Meet Chauhan — Redirect Analyzer
 </div>
 """, unsafe_allow_html=True)
