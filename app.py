@@ -256,7 +256,8 @@ if run_check and urls_to_check:
     
     # 2. Execution
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {executor.submit(check_redirection_chain, url, use_browser_ua, verify_ssl, timeout_val): url for url in urls_to_check}
+        # futures = {executor.submit(check_redirection_chain, url, use_browser_ua, verify_ssl, timeout_val): url for url in urls_to_check}
+        futures = {executor.submit(check_redirection_chain, url,verify_ssl, timeout_val): url for url in urls_to_check}
         total = len(urls_to_check)
         
         for i, future in enumerate(as_completed(futures)):
