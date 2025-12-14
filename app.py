@@ -66,10 +66,10 @@ def check_redirection_chain(url):
     visited = set()
     chain = []
     current_url = url
+
     try:
         while True:
             if current_url in visited:
-                # loop detected
                 chain.append({
                     'URL': current_url,
                     'Status': 'Loop detected',
@@ -79,10 +79,27 @@ def check_redirection_chain(url):
                 break
 
             visited.add(current_url)
-            resp = requests.get(current_url, timeout=TIMEOUT, allow_redirects=False)
-            status = resp.status_code
+
+            # --- STEP 1: Try HEAD first ---
+            try:
+                resp = requests.head(
+                    current_url,
+                    timeout=TIMEOUT,
+                    allow_redirects=False
+                )
+                status = resp.status_code
+            except:
+                # --- STEP 2: Fallback to GET ---
+                resp = requests.get(
+                    current_url,
+                    timeout=TIMEOUT,
+                    allow_redirects=False
+                )
+                status = resp.status_code
+
             status_text = status_names.get(status, 'Unknown')
             server = get_server_name(resp.headers)
+
             chain.append({
                 'URL': current_url,
                 'Status': status_text,
@@ -90,25 +107,30 @@ def check_redirection_chain(url):
                 'Server': server
             })
 
+            # --- Handle redirect ---
             if status in (301, 302, 303, 307, 308):
                 redirect_url = resp.headers.get('Location')
                 if not redirect_url:
                     break
-                # Absolute URL handling
+
                 if redirect_url.startswith('/'):
                     from urllib.parse import urljoin
                     redirect_url = urljoin(current_url, redirect_url)
+
                 current_url = redirect_url
             else:
                 break
-    except Exception as e:
+
+    except Exception:
         chain.append({
             'URL': current_url,
             'Status': 'Error',
             'Status Code': 'Error',
             'Server': 'N/A'
         })
+
     return chain
+# === 14/12/25 new code to properly detect the 302 redirection. changed the check_redirection_chain func. code. 
 
 # === Render redirect chain in markdown for UI ===
 def render_redirect_chain(chain):
