@@ -3,174 +3,262 @@ import pandas as pd
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from urllib.parse import urljoin
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils.dataframe import dataframe_to_rows
 
-# === CONFIGURATION ===
-st.set_page_config(page_title="Redirect Auditor", layout="wide")
+# ================= CONFIG =================
+MAX_WORKERS = 20
+TIMEOUT = 6
+REDIRECT_CODES = (301, 302, 303, 307, 308)
 
-# HEADERS TO MIMIC BROWSER (Fixes 301/302 AEM Issue)
-BROWSER_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.5',
+status_names = {
+    200: "OK",
+    301: "Moved Permanently",
+    302: "Found",
+    303: "See Other",
+    307: "Temporary Redirect",
+    308: "Permanent Redirect",
+    404: "Not Found",
+    500: "Server Error"
 }
 
-# ... (Include helper functions: get_server_name, is_blocked_url from previous code) ...
+# ================= UI THEME =================
+st.set_page_config("Advanced Redirect Chain Analyzer", layout="wide")
 
-def check_chain_robust(url):
-    # Implementation of the fixed logic with BROWSER_HEADERS
-    # ... (See previous artifact for logic) ...
-    pass 
+st.markdown("""
+<style>
+.block-container { padding-top: 1.5rem; }
+.card {
+    background: #0f172a;
+    padding: 14px;
+    border-radius: 12px;
+    color: white;
+}
+.small { font-size: 13px; color: #cbd5f5; }
+thead tr th { text-align: center !important; }
+tbody tr td { text-align: center !important; }
+</style>
+""", unsafe_allow_html=True)
 
-# === UI LAYOUT ===
-with st.sidebar:
-    st.title("⚙️ Configuration")
-    uploaded_file = st.file_uploader("Upload Excel", type="xlsx")
-    raw_text = st.text_area("Paste URLs", height=150)
-    st.divider()
-    if st.button("▶ Run Audit", type="primary", use_container_width=True):
-        st.session_state.run_check = True
+st.title("🔗 Advanced Redirect Chain Analyzer")
+st.caption("AEM • Akamai • SEO-Safe • Enterprise-Grade Redirect Tool")
 
-# === MAIN CONTENT ===
-st.title("🔗 Redirect Auditor")
+# ================= UTILITIES =================
+def get_server_name(headers):
+    akamai_keys = ["akamai", "x-akamai", "akamai-ghost"]
+    combined = " ".join(f"{k}:{v}" for k, v in headers.items()).lower()
+    for key in akamai_keys:
+        if key in combined:
+            return "Akamai"
+    return headers.get("Server", "Unknown")
 
-if st.session_state.get("run_check"):
-    # 1. Processing Logic
-    progress_bar = st.progress(0)
-    
-    # 2. Display Metrics
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total URLs", len(urls))
-    col2.metric("Success (200)", success_count)
-    col3.metric("Redirects", redirect_count)
-    col4.metric("Errors", error_count)
+def fetch_dual_response(url):
+    head_resp, get_resp = None, None
+    try:
+        head_resp = requests.head(
+            url,
+            timeout=TIMEOUT,
+            allow_redirects=False,
+            headers={"User-Agent": "SEO-Redirect-Checker"}
+        )
+    except:
+        pass
 
-    # 3. Modern Data Table with Column Config
-    st.dataframe(
-        df_results,
-        column_config={
-            "Status Code": st.column_config.NumberColumn(
-                "Status",
-                format="%d",
-            ),
-            "Redirect Chain": st.column_config.ListColumn(
-                "Hops"
-            )
-        },
-        use_container_width=True
-    )
+    try:
+        get_resp = requests.get(
+            url,
+            timeout=TIMEOUT,
+            allow_redirects=False,
+            headers={"User-Agent": "SEO-Redirect-Checker"}
+        )
+    except:
+        pass
 
-# --- Filter/Search UI ---
-st.markdown("### 🔎 Filter / Search URLs")
-search_term = st.text_input("Search in Original or Redirected URLs or Status Codes or Server names:")
+    return head_resp, get_resp
 
-if search_term:
-    df_filtered = df_results[
-        df_results["Original URL"].str.contains(search_term, case=False, na=False) |
-        df_results["Redirected URL"].str.contains(search_term, case=False, na=False) |
-        df_results["Server"].str.contains(search_term, case=False, na=False) |
-        df_results["Status Code"].astype(str).str.contains(search_term, case=False, na=False)    ]
-else:
-    df_filtered = df_results
+# ================= REDIRECT LOGIC =================
+def check_redirection_chain(start_url):
+    visited = set()
+    chain = []
+    current_url = start_url
 
+    while True:
+        if current_url in visited:
+            chain.append({
+                "URL": current_url,
+                "HEAD": "Loop",
+                "GET": "Loop",
+                "Meaning": "Redirect Loop",
+                "Server": "N/A",
+                "Location": ""
+            })
+            break
 
-    # 4. Excel Export Logic (Two Sheets)
-    # ... Code to create Summary and Detail sheets ...
+        visited.add(current_url)
+        head, get = fetch_dual_response(current_url)
 
-# --- Download Excel with formatting ---
-def to_excel(df_summary, df_tracking):
-    wb = Workbook()
+        head_code = head.status_code if head else "Error"
+        get_code = get.status_code if get else "Error"
+        meaning = status_names.get(head_code, "Unknown")
+        server = get_server_name(get.headers if get else {})
 
-    # === Sheet 1: Summary ===
-    ws1 = wb.active
-    ws1.title = "URL Redirect Results"
+        location = ""
+        source = head if head and head_code in REDIRECT_CODES else get
+        if source:
+            location = source.headers.get("Location", "")
+            if location.startswith("/"):
+                location = urljoin(current_url, location)
 
-    for r_idx, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), 1):
-        ws1.append(row)
-        if r_idx == 1:
-            for cell in ws1[r_idx]:
-                cell.font = Font(bold=True)
-                cell.alignment = Alignment(horizontal="center")
+        chain.append({
+            "URL": current_url,
+            "HEAD": head_code,
+            "GET": get_code,
+            "Meaning": meaning,
+            "Server": server,
+            "Location": location
+        })
+
+        if head_code in REDIRECT_CODES or get_code in REDIRECT_CODES:
+            if not location:
+                break
+            current_url = location
         else:
-            status_code = row[2]
-            fill = get_status_fill(status_code)
-            for cell in ws1[r_idx]:
-                cell.fill = fill
+            break
 
-    ws1.auto_filter.ref = ws1.dimensions  # Add Excel filter
-    adjust_column_widths(ws1)
+    return chain
 
-    # === Sheet 2: Redirection Tracking (Grouped) ===
-    ws2 = wb.create_sheet("Redirection Tracking")
+# ================= INPUT UI =================
+col1, col2 = st.columns([2,1])
 
-    grouped = df_tracking.groupby("Original URL")
+with col1:
+    uploaded_file = st.file_uploader("📁 Upload Excel (.xlsx)", type="xlsx")
 
-    for url, group in grouped:
-        ws2.append([f"Redirect Chain for: {url}"])
-        for cell in ws2[ws2.max_row]:
-            cell.font = Font(bold=True, color="0000FF")
-        ws2.append([])
+with col2:
+    sample = pd.DataFrame({"Original URL": ["https://example.com"]})
+    buf = BytesIO()
+    sample.to_excel(buf, index=False)
+    buf.seek(0)
+    st.download_button("⬇ Sample File", buf, "sample_urls.xlsx")
 
-        for r_idx, row in enumerate(dataframe_to_rows(group, index=False, header=True)):
-            ws2.append(row)
-            if r_idx > 0:  # skip header row
-                status_code = row[3]
-                fill = get_status_fill(status_code)
-                for cell in ws2[ws2.max_row]:
-                    cell.fill = fill
+text_input = st.text_area("Or paste URLs (one per line)", height=120)
 
-        ws2.append([])  # Spacer
+# ================= URL COLLECTION =================
+urls = []
+if uploaded_file:
+    df = pd.read_excel(uploaded_file)
+    urls += df.iloc[:,0].dropna().astype(str).tolist()
 
-    adjust_column_widths(ws2)
-    ws2.auto_filter.ref = ws2.dimensions
+if text_input.strip():
+    urls += [u.strip() for u in text_input.splitlines() if u.strip()]
 
-    # === Save to stream ===
+urls = list(dict.fromkeys(urls))  # unique
+
+if not urls:
+    st.warning("Please provide URLs to proceed.")
+    st.stop()
+
+# ================= PROCESS =================
+st.info(f"Checking {len(urls)} URLs…")
+
+results = []
+with ThreadPoolExecutor(MAX_WORKERS) as exe:
+    futures = {exe.submit(check_redirection_chain, u): u for u in urls}
+    for f in futures:
+        results.append((futures[f], f.result()))
+
+st.success("Redirect analysis completed.")
+
+# ================= SUMMARY =================
+summary = []
+chains_flat = []
+
+for orig, chain in results:
+    final = chain[-1]
+    summary.append({
+        "Original URL": orig,
+        "Final URL": final["URL"],
+        "Origin Status (HEAD)": final["HEAD"],
+        "Edge Status (GET)": final["GET"],
+        "Redirect Count": len(chain) - 1,
+        "Server/CDN": final["Server"]
+    })
+
+    for i, step in enumerate(chain, 1):
+        chains_flat.append({
+            "Original URL": orig,
+            "Step": i,
+            **step
+        })
+
+df_summary = pd.DataFrame(summary)
+df_chain = pd.DataFrame(chains_flat)
+
+# ================= DISPLAY =================
+st.markdown("### 📊 Executive Summary")
+st.dataframe(df_summary, use_container_width=True)
+
+st.markdown("### 🔗 Redirect Chains")
+for orig, chain in results:
+    with st.expander(orig):
+        st.dataframe(pd.DataFrame(chain), use_container_width=True, height=200)
+
+# ================= EXCEL EXPORT =================
+def get_fill(code):
+    try:
+        c = int(code)
+        if 200 <= c < 300:
+            return PatternFill("solid", fgColor="C6EFCE")
+        if 300 <= c < 400:
+            return PatternFill("solid", fgColor="FFF2CC")
+        if c >= 400:
+            return PatternFill("solid", fgColor="F8CBAD")
+    except:
+        pass
+    return None
+
+def export_excel(df_summary, df_chain):
+    wb = Workbook()
+    ws1 = wb.active
+    ws1.title = "Summary"
+
+    for r, row in enumerate(dataframe_to_rows(df_summary, index=False, header=True), 1):
+        ws1.append(row)
+        if r == 1:
+            for c in ws1[r]:
+                c.font = Font(bold=True)
+        else:
+            for c in ws1[r]:
+                c.fill = get_fill(row[2])
+
+    ws2 = wb.create_sheet("Redirect Chains")
+    for r, row in enumerate(dataframe_to_rows(df_chain, index=False, header=True), 1):
+        ws2.append(row)
+        if r == 1:
+            for c in ws2[r]:
+                c.font = Font(bold=True)
+        else:
+            for c in ws2[r]:
+                c.fill = get_fill(row[3])
+
     stream = BytesIO()
     wb.save(stream)
     stream.seek(0)
     return stream
 
-# === Helpers ===
-def get_status_fill(code):
-    try:
-        code = int(code)
-    except:
-        return PatternFill(start_color="FFFFFF", fill_type=None)
-
-    if 200 <= code < 300:
-        return PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")  # Green
-    elif 300 <= code < 400:
-        return PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")  # Yellow
-    elif 400 <= code < 600:
-        return PatternFill(start_color="F8CBAD", end_color="F8CBAD", fill_type="solid")  # Red
-    return PatternFill(start_color="FFFFFF", fill_type=None)
-
-def adjust_column_widths(ws):
-    for col in ws.columns:
-        max_len = max(len(str(cell.value)) if cell.value else 0 for cell in col)
-        ws.column_dimensions[col[0].column_letter].width = max_len + 4
-
-excel_data = to_excel(df_summary, df_results)
+excel = export_excel(df_summary, df_chain)
 
 st.download_button(
-    label="📥 Download Results as Excel",
-    data=excel_data,
-    file_name="url_status_with_redirect_results.xlsx",
+    "📥 Download Excel Report",
+    excel,
+    "redirect_analysis_report.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-# --- Show redirect chains as collapsible markdown ---
-st.markdown("### 🔗 Redirect Chains Preview (expand below)")
-
-for orig_url, chain in results:
-    with st.expander(orig_url, expanded=False):
-        st.markdown(render_redirect_chain(chain))
-
-# --- Footer ---
 st.markdown("""
 ---
-<div style='text-align: center; font-size: 0.9em; color: gray;'>
-© 2025 Meet Chauhan. All rights reserved.
+<div style="text-align:center;color:gray;font-size:13px">
+© 2025 Meet Chauhan — Advanced Redirect Analyzer
 </div>
 """, unsafe_allow_html=True)
