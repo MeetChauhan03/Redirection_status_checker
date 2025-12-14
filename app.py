@@ -208,8 +208,9 @@ with st.sidebar:
     
     # Advanced Settings
     with st.expander("⚙️ Advanced Settings", expanded=True):
-        # use_browser_ua = st.toggle("Simulate Real Browser", value=True, 
-        #                          help="Use Chrome User-Agent headers to fix AEM/Akamai 301 vs 302 detection issues.")
+        # FIX 1: Uncommented the browser UA toggle
+        use_browser_ua = st.toggle("Simulate Real Browser", value=True, 
+                                 help="Use Chrome User-Agent headers to fix AEM/Akamai 301 vs 302 detection issues.")
         verify_ssl = st.toggle("Verify SSL Certificates", value=True)
         timeout_val = st.slider("Request Timeout (sec)", 1, 30, DEFAULT_TIMEOUT)
     
@@ -256,8 +257,8 @@ if run_check and urls_to_check:
     
     # 2. Execution
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        # futures = {executor.submit(check_redirection_chain, url, use_browser_ua, verify_ssl, timeout_val): url for url in urls_to_check}
-        futures = {executor.submit(check_redirection_chain, url,verify_ssl, timeout_val): url for url in urls_to_check}
+        # FIX 2: Corrected the function call with all 4 parameters in the right order
+        futures = {executor.submit(check_redirection_chain, url, use_browser_ua, verify_ssl, timeout_val): url for url in urls_to_check}
         total = len(urls_to_check)
         
         for i, future in enumerate(as_completed(futures)):
@@ -315,11 +316,12 @@ if run_check and urls_to_check:
     m4.metric("Errors/Loops", error_cnt)
     
     # 5. Result Table
+    # FIX 3: Removed the format parameter that would crash on non-numeric values
     st.dataframe(
         df_summary, 
         use_container_width=True,
         column_config={
-            "Final Status Code": st.column_config.NumberColumn("Status", format="%d"),
+            "Final Status Code": st.column_config.TextColumn("Status"),
             "Original URL": st.column_config.LinkColumn("Original"),
             "Final URL": st.column_config.LinkColumn("Final"),
         }
