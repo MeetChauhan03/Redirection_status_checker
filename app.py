@@ -38,23 +38,39 @@ def clear_inputs():
 
 # === Utility: Get server name from headers ===
 def get_server_name(headers):
-    akamai_indicators = ["AkamaiGHost","akamaitechnologies.com","X-Akamai-Transformed"]
+    if not headers:
+        return "Unknown"
 
-    # Combine headers into one searchable string
-    combined_headers = " | ".join(f"{k}: {v}" for k, v in headers.items())
+    akamai_indicators = [
+        "akamai",
+        "akamaiGHost",
+        "X-Akamai-Transformed",
+        "X-Cache",
+        "Akamai"
+    ]
 
-    for akamai_marker in akamai_indicators:
-        if akamai_marker.lower() in combined_headers.lower():
-            return "Akamai"
+    cloudfront_indicators = ["cloudfront", "X-Amz-Cf-Id"]
+    fastly_indicators = ["fastly"]
+    aem_indicators = ["AEM", "Dispatcher", "Adobe"]
 
-    # Fallback to general server header inspection
-    server_headers_priority = ["Server","X-Powered-By","X-Cache","Via","CF-RAY","X-Amz-Cf-Id","X-CDN"]
-    
-    for key in server_headers_priority:
-        if key in headers:
+    combined = " | ".join(f"{k}: {v}" for k, v in headers.items()).lower()
+
+    if any(x.lower() in combined for x in akamai_indicators):
+        return "Akamai CDN"
+    if any(x.lower() in combined for x in cloudfront_indicators):
+        return "AWS CloudFront"
+    if any(x.lower() in combined for x in fastly_indicators):
+        return "Fastly CDN"
+    if any(x.lower() in combined for x in aem_indicators):
+        return "Adobe AEM"
+
+    # Direct headers fallback
+    for key in ["Server", "Via", "X-Powered-By"]:
+        if key in headers and headers[key]:
             return f"{key}: {headers[key]}"
-    
+
     return "Unknown"
+#for checking the server name which was showing unknow of most of the urls 14/12/25. changes above fucntion get_server_name func.
 
 
 # === URL blocking check ===
